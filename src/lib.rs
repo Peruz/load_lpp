@@ -1,10 +1,11 @@
+#![feature(test)]
+extern crate test;
 use chrono::prelude::*;
 use plotters::prelude::*;
 use rayon::prelude::*;
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
-use std::sync::{Arc, Mutex};
 pub mod log;
 pub mod plot;
 pub mod process;
@@ -229,7 +230,7 @@ impl TimeLoad {
         let mut chart = ChartBuilder::on(&root)
             .margin(50)
             .x_label_area_size(40)
-            .y_label_area_size(80)
+            .y_label_area_size(100)
             .build_cartesian_2d(xmin.clone()..xmax.clone(), ymin..ymax)?;
         chart
             .configure_mesh()
@@ -333,54 +334,7 @@ pub fn make_window(w_central: f64, w_side: f64, side: usize) -> Vec<f64> {
     updown
 }
 
-// A parallel implemetation of the moving average
-// which takes advange of both multi-processor and SIMD parallelization.
-// THis implementation offers increased performance but reduced flexibility?
-// Maybe if each processor takes a window, uses SIMD for the math, only later checks the missing
-// values, this can keep the same functionalities as the non-parallel one.
-// Can we use generic constants? I don't think so, but let's think about that.
-//
-// There are three common methods which can create iterators from a collection:
-// iter(&self), which iterates over &T.
-// iter_mut(&mut self), which iterates over &mut T.
-// into_iter(self), which iterates over T.
-// There's a trait in the standard library for converting something into an iterator: IntoIterator.
-// This trait has one method, into_iter, which converts the thing implementing IntoIterator into an iterator.
-// The for loop requires the IntoIterator trait, which allows the into_iter() call
-pub fn mavg_parallel(
-    v: &[f64],
-    w: &[f64],
-    _max_missing_v: usize,
-    _max_missing_wpct: f64,
-) -> Vec<f64> {
-    let len_v: usize = v.len();
-    let len_w: usize = w.len();
-    assert!(
-        len_w < len_v,
-        "length of moving average window > length of vector"
-    );
-    assert!(
-        len_w % 2 == 1,
-        "the moving average window has an even number of elements; \
-        it should be odd to have a central element"
-    );
-    let side: usize = (len_w - 1) / 2;
-    let mut vout: Vec<f64> = vec![f64::NAN; len_v];
-
-    v.par_windows(len_w as usize)
-        .zip(vout[side as usize..].par_iter_mut())
-        .for_each(|(window, vout_e)| {
-            *vout_e = window
-                .iter()
-                .zip(w)
-                .map(|(win_e, wt_e)| win_e * wt_e)
-                .fold(0., |acc, x| acc + x);
-            println!("{:?} {:?} {}", window, w, vout_e);
-        });
-    println!("{:?}", vout);
-    vout
-}
-
+// Flexible Weighted Moving Average implementation with parameters to handle the maximum missing information.
 /// Roll the weighted moving window w over the data v,
 /// also filling the NAN values with the weighted average when possible:
 /// 1) sufficient number of data, i.e., number missing data under the window < max_missing_v;
@@ -438,120 +392,241 @@ pub fn mavg(v: &[f64], w: &[f64], max_missing_v: usize, max_missing_wpct: f64) -
     vout
 }
 
+// Weighted Moving Average implementation for long windows and
+// with limited number of expected missing values in the time series.
+// This is a parallel implementation of the moving average 
+// that splits the multiplication step from the successive sum.
+// This allows SIMD parallelism, but requires second loop over the window for the sum.
+// The SIMD optimization, in addition to the multi-threading, has been confirmed by the assembly.
+pub fn mavg_parallel_simd(v: &[f64], w: &[f64]) -> Vec<f64> {
+    let len_v: usize = v.len();
+    let len_w: usize = w.len();
+    assert!(
+        len_w < len_v,
+        "length of moving average window > length of vector"
+    );
+    assert!(
+        len_w % 2 == 1,
+        "the moving average window has an even number of elements; \
+        it should be odd to have a central element"
+    );
+    let sum_all_w: f64 = w.iter().sum();
+    let side: usize = (len_w - 1) / 2;
+    let mut vout: Vec<f64> = vec![f64::NAN; len_v];
+    v.par_windows(len_w as usize)
+        .zip(vout[side as usize..].par_iter_mut())
+        .for_each(|(window, vout_e)| {
+            let product: Vec<f64>  = window
+                .iter()
+                .zip(w)
+                .map(|(win_e, wt_e)| win_e * wt_e)
+                .collect();
+            let sum: f64 = product.iter().sum();
+            *vout_e = sum / sum_all_w;
+        });
+    vout
+}
+
+// Weighted Moving Average implementation for long windows,
+// for limited number of expected missing values and edge devices with limited memory.
+// This is a parallel implementation of the moving average that
+// allows the sum of the weighted loads to be directly executed,
+// i.e., pair-wise multiplication proceed together with the sum.
+pub fn mavg_parallel_fold(v: &[f64], w: &[f64]) -> Vec<f64> {
+    let len_v: usize = v.len();
+    let len_w: usize = w.len();
+    assert!(
+        len_w < len_v,
+        "length of moving average window > length of vector"
+    );
+    assert!(
+        len_w % 2 == 1,
+        "the moving average window has an even number of elements; \
+        it should be odd to have a central element"
+    );
+    let sum_all_w: f64 = w.iter().sum();
+    let side: usize = (len_w - 1) / 2;
+    let mut vout: Vec<f64> = vec![f64::NAN; len_v];
+    v.par_windows(len_w as usize)
+        .zip(vout[side as usize..].par_iter_mut())
+        .for_each(|(window, vout_e)| {
+            *vout_e = window
+                .iter()
+                .zip(w)
+                .map(|(win_e, wt_e)| win_e * wt_e)
+                .fold(0., |acc, x| acc + x)
+                / sum_all_w;
+        });
+    vout
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    // run tests with:
+    // cargo test -- --nocapture
+    // to allow println! to stdout
 
     // DateTime<FixedOffset> stores:
     // self.datetime, which is the utc time
     // self.offset, accessed with self.offset.fix(), which is the fixedoffset
     // calling dt.naive_local() returns
     // self.datetime + self.offset.fix(), which is the standard time
-    // #[test]
-    // fn datetime_parsing_with_timezone() {
-    //     let mut timezone: i32 = -8;
-    //     timezone *= 60 * 60;
-    //     let timezone_fixed_offset = FixedOffset::east(timezone);
-    //     let dtstr = "2021-11-07T01:30:00-07:00";
-    //     let dtiso = DateTime::parse_from_rfc3339(dtstr).unwrap();
-    //     let dtfix = dtiso.with_timezone(&timezone_fixed_offset);
-    //     println!(
-    //         "datetime str {} parsed as {}, fixed {}",
-    //         dtstr, dtiso, dtfix
-    //     );
-    //     let dtstr = "2021-11-07T01:30:00-08:00";
-    //     let dtiso = DateTime::parse_from_rfc3339(dtstr).unwrap();
-    //     let dtfix = dtiso.with_timezone(&timezone_fixed_offset);
-    //     println!(
-    //         "datetime str {} parsed as {}, fixed {}",
-    //         dtstr, dtiso, dtfix
-    //     );
-    // }
-
-    // #[test]
-    // fn test_from_csv() {
-    //     let mut timezone: i32 = -8;
-    //     timezone *= 60 * 60;
-    //     let timezone_fixed_offset = FixedOffset::east(timezone);
-    //     let mut tl = TimeLoad::from_csv(String::from("test/datetime.csv"));
-    //     tl.time.iter_mut().for_each(|t| *t = t.with_timezone(&timezone_fixed_offset));
-    //     println!("{}", tl);
-    //     tl.is_ordered();
-    //     let mut ctl = tl.fill_missing_with_nan();
-    //     println!("{}", ctl);
-    //     ctl.is_ordered_and_continuous();
-    //     let bad = read_bad_datetimes("test/bad_datetimes.csv");
-    //     ctl.replace_bad_datetimes_with_nan(bad);
-    //     println!("{}", ctl);
-    //     let time_init = NaiveTime::parse_from_str("01:02", "%H:%M").unwrap();
-    //     let time_stop = NaiveTime::parse_from_str("01:05", "%H:%M").unwrap();
-    //     ctl.replace_bad_time_interval_with_nan(time_init, time_stop);
-    //     println!("{}", ctl);
-    //     ctl.replace_errors_with_nan(99995.);
-    //     println!("{}", ctl);
-    //     ctl.replace_outliers_with_nan(10000., 18000.);
-    //     println!("{}", ctl);
-    //     let mavg_window = make_window(3., 1., 2usize);
-    //     let smooth = mavg(
-    //         &ctl.load[..],
-    //         &mavg_window,
-    //         3 as usize,
-    //         80.,
-    //     );
-    //     ctl.load = smooth;
-    //     println!("{}", ctl);
-    //     ctl.to_csv("test/datetime_processed.csv");
-    //     println!("saved to test/datetime_processed.csv");
-    // }
-
     #[test]
-    fn test_from_csv_parallel() {
+    fn datetime_parsing_with_timezone() {
         let mut timezone: i32 = -8;
         timezone *= 60 * 60;
         let timezone_fixed_offset = FixedOffset::east(timezone);
-        let mut tl = TimeLoad::from_csv(String::from("test/datetime.csv"));
-        tl.time
-            .iter_mut()
-            .for_each(|t| *t = t.with_timezone(&timezone_fixed_offset));
-        // println!("{}", tl);
+        let dtstr = "2021-11-07T01:30:00-07:00";
+        let dtiso = DateTime::parse_from_rfc3339(dtstr).unwrap();
+        let dtfix = dtiso.with_timezone(&timezone_fixed_offset);
+        println!(
+            "datetime str {} parsed as {}, fixed {}",
+            dtstr, dtiso, dtfix
+        );
+        let dtstr = "2021-11-07T01:30:00-08:00";
+        let dtiso = DateTime::parse_from_rfc3339(dtstr).unwrap();
+        let dtfix = dtiso.with_timezone(&timezone_fixed_offset);
+        println!(
+            "datetime str {} parsed as {}, fixed {}",
+            dtstr, dtiso, dtfix
+        );
+    }
+
+    fn f64eq_with_nan_eq(a: f64, b: f64) -> bool {
+        (a.is_nan() && b.is_nan()) || (a == b)
+    }
+
+    fn f64vec_compare(va: &[f64], vb: &[f64]) -> bool {
+        (va.len() == vb.len()) && va.iter().zip(vb).all(|(a, b)| f64eq_with_nan_eq(*a, *b))
+    }
+
+    #[test]
+    fn test_all_steps() {
+        let mut timezone: i32 = -8;
+        timezone *= 60 * 60;
+        let timezone_fixed_offset = FixedOffset::east(timezone);
+        let mut tl = TimeLoad::from_csv(String::from("./test/datetime.csv"));
+        tl.time.iter_mut().for_each(|t| *t = t.with_timezone(&timezone_fixed_offset));
+        println!("{}", tl);
         tl.is_ordered();
         let mut ctl = tl.fill_missing_with_nan();
-        // println!("{}", ctl);
+        println!("{}", ctl);
         ctl.is_ordered_and_continuous();
-        let bad = read_bad_datetimes("test/bad_datetimes.csv");
+        let bad = read_bad_datetimes("./test/bad_datetimes.csv");
         ctl.replace_bad_datetimes_with_nan(bad);
-        // println!("{}", ctl);
+        println!("{}", ctl);
         let time_init = NaiveTime::parse_from_str("01:02", "%H:%M").unwrap();
         let time_stop = NaiveTime::parse_from_str("01:05", "%H:%M").unwrap();
         ctl.replace_bad_time_interval_with_nan(time_init, time_stop);
-        // println!("{}", ctl);
+        println!("{}", ctl);
         ctl.replace_errors_with_nan(99995.);
-        // println!("{}", ctl);
+        println!("{}", ctl);
         ctl.replace_outliers_with_nan(10000., 18000.);
-        // println!("{}", ctl);
+        println!("{}", ctl);
         let mavg_window = make_window(3., 1., 2usize);
-        let smooth = mavg_parallel(&ctl.load[..], &mavg_window, 3 as usize, 80.);
+        let smooth = mavg(
+            &ctl.load[..],
+            &mavg_window,
+            3 as usize,
+            80.,
+        );
+        println!("{:?}", smooth);
         ctl.load = smooth;
-        // println!("{}", ctl);
-        ctl.to_csv("test/datetime_processed.csv");
-        // println!("saved to test/datetime_processed.csv");
+        ctl.plot_datetime("./test/test_all_steps.svg").unwrap();
+        println!("{}", ctl);
+        ctl.to_csv("./test/datetime_processed.csv");
+        println!("saved to ./test/test_all_steps_processed.csv");
     }
 
-    // #[test]
-    // fn test_plotting() {
-    //     let mut timezone: i32 = -8;
-    //     timezone *= 60 * 60;
-    //     let timezone_fixed_offset = FixedOffset::east(timezone);
-    //     let dtstr = "2021-11-07T01:30:00-07:00";
-    //     let dtiso = DateTime::parse_from_rfc3339(dtstr).unwrap();
-    //     let dtfix = dtiso.with_timezone(&timezone_fixed_offset);
-    // }
+    #[test]
+    fn test_all_steps_parallel() {
+        let mut timezone: i32 = -8;
+        timezone *= 60 * 60;
+        let timezone_fixed_offset = FixedOffset::east(timezone);
+        let mut tl = TimeLoad::from_csv(String::from("./test/datetime_for_parallel.csv"));
+        tl.time
+            .iter_mut()
+            .for_each(|t| *t = t.with_timezone(&timezone_fixed_offset));
+        println!("{}", tl);
+        tl.is_ordered();
+        let mut ctl = tl.fill_missing_with_nan();
+        println!("{}", ctl);
+        ctl.is_ordered_and_continuous();
+        let bad = read_bad_datetimes("./test/bad_datetimes.csv");
+        ctl.replace_bad_datetimes_with_nan(bad);
+        println!("{}", ctl);
+        let time_init = NaiveTime::parse_from_str("01:02", "%H:%M").unwrap();
+        let time_stop = NaiveTime::parse_from_str("01:05", "%H:%M").unwrap();
+        ctl.replace_bad_time_interval_with_nan(time_init, time_stop);
+        println!("{}", ctl);
+        ctl.replace_errors_with_nan(99995.);
+        println!("{}", ctl);
+        ctl.replace_outliers_with_nan(10000., 18000.);
+        println!("{}", ctl);
+        let mavg_window = make_window(3., 1., 2usize);
+        let smooth = mavg_parallel_fold(&ctl.load[..], &mavg_window);
+        let correct_smooth = vec![
+            f64::NAN,
+            f64::NAN,
+            13003.0,
+            13004.0,
+            13005.0,
+            13006.0,
+            13007.0,
+            13008.0,
+            13008.888888888889,
+            13009.666666666666,
+            13010.333333333334,
+            13011.111111111111,
+            13012.0,
+            13013.0,
+            13014.0,
+            13015.0,
+            13016.0,
+            13017.0,
+            13018.0,
+            f64::NAN,
+            f64::NAN,
+        ];
+        assert! {f64vec_compare(&smooth, &correct_smooth)};
+        ctl.load = smooth;
+        ctl.to_csv("./test/test_all_steps_parallel.csv");
+        println!("saved to ./test/datetime_processed_parallel.csv");
+    }
 
-    // #[test]
-    // fn test_logapp_datetime() {
-    //     let dtnow: DateTime<Local> = Local::now();
-    //     println!("local time is {}", dtnow.to_rfc3339_opts(SecondsFormat::Secs, false));
-    //     let local_offset = dtnow.offset();
-    //     println!("local offet is {}", local_offset);
-    // }
+    #[test]
+    fn test_logapp_datetime() {
+        let dtnow: DateTime<Local> = Local::now();
+        println!("local time is {}", dtnow.to_rfc3339_opts(SecondsFormat::Secs, false));
+        let local_offset = dtnow.offset();
+        println!("local offet is {}", local_offset);
+    }
+}
+
+#[bench]
+fn bench_mavg_parallel_simd(b: &mut test::Bencher) {
+    let v = vec![1000.; 1E+5 as usize];
+    let w = make_window(3., 1., 180 as usize);
+    b.iter(|| {
+        mavg_parallel_simd(&v, &w);
+    });
+}
+
+#[bench]
+fn bench_mavg_parallel_fold(b: &mut test::Bencher) {
+    let v = vec![1000.; 1E+5 as usize];
+    let w = make_window(3., 1., 180 as usize);
+    b.iter(|| {
+        mavg_parallel_fold(&v, &w);
+    });
+}
+
+#[bench]
+fn bench_mavg(b: &mut test::Bencher) {
+    let v = vec![1000.; 1E+5 as usize];
+    let w = make_window(3., 1., 180 as usize);
+    b.iter(|| {
+        mavg(&v, &w, 1usize, 1f64);
+    });
 }
