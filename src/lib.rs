@@ -364,33 +364,8 @@ pub fn mavg_parallel(
         "the moving average window has an even number of elements; \
         it should be odd to have a central element"
     );
-    let side: i32 = (len_w as i32 - 1) / 2;
-    // let sum_all_w: f64 = w.iter().sum();
-    // let max_missing_w: f64 = sum_all_w / 100. * max_missing_wpct;
-    // let window_size = len_w as usize;
-    // let vin: Vec<f64> = v.to_owned();
-    // for (window, weights) in vin.iter().zip(w.iter()) {
-    //     println!("{:?} {:?}", window, weights);
-    // }
+    let side: usize = (len_w - 1) / 2;
     let mut vout: Vec<f64> = vec![f64::NAN; len_v];
-    // let vout = Arc::new(Mutex::new(Vec::with_capacity(len_v as usize)));
-    // println!("Linear"); for window in v.windows(3) {
-    //     println!("{:?}", window);
-    // }
-
-    println!("Parallel");
-    // v.par_windows(len_w as usize)
-    //     .for_each(|window| println!("{:?} {:?} ", window, w));
-
-    // v.par_windows(len_w as usize).for_each(|window| {
-    //     println!("{:?} {:?} ", window, w);
-    //     let product: Vec<f64> = window
-    //         .iter()
-    //         .zip(w)
-    //         .map(|(win_e, wt_e)| win_e * wt_e)
-    //         .collect();
-    //     println!("{:?}", product);
-    // });
 
     v.par_windows(len_w as usize)
         .zip(vout[side as usize..].par_iter_mut())
@@ -403,19 +378,6 @@ pub fn mavg_parallel(
             println!("{:?} {:?} {}", window, w, vout_e);
         });
     println!("{:?}", vout);
-
-    // v.par_windows(len_w as usize).enumerate().for_each(|(i, window)| {
-    //     let product_sum: f64 = window
-    //         .iter()
-    //         .zip(w)
-    //         .map(|(win_e, wt_e)| win_e * wt_e)
-    //         .fold(0., |acc, x| acc + x);
-    //     vout.lock().unwrap(). = product_sum;
-    //     println!("{:?} {:?} {}", window, w, product_sum);
-    // });
-
-    let mut vout: Vec<f64> = Vec::with_capacity(len_v as usize);
-    vout.iter_mut().for_each(|v| *v = 1.);
     vout
 }
 
