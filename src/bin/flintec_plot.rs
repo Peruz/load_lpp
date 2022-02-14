@@ -1,5 +1,5 @@
-use flintec_lpp::plot::parse_cli;
-use flintec_lpp::TimeLoad;
+use load_lpp::plot::parse_cli;
+use load_lpp::TimeLoad;
 
 fn main() {
     let (csvin, svgout) = parse_cli();

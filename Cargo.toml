@@ -1,11 +1,11 @@
 [package]
-name = "flintec_lpp"
-version = "11.0.2"
+name = "load_lpp"
+version = "11.0.3"
 authors = ["Peruz <lucaperuzzo@outlook.com>"]
 edition = "2018"
 license = "GPL-3.0"
-repository = "https://github.com/Peruz/flintec_lpp"
-description = "CLI apps for logging, processing, and plotting load time series from Flintec load cells - DAD 141.1"
+repository = "https://github.com/Peruz/load_lpp"
+description = "CLI apps for logging, processing, and plotting load time series"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

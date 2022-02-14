@@ -1,9 +1,9 @@
 use chrono::prelude::*;
-use flintec_lpp::make_window;
-use flintec_lpp::mavg;
-use flintec_lpp::process::parse_cli;
-use flintec_lpp::read_bad_datetimes;
-use flintec_lpp::TimeLoad;
+use load_lpp::make_window;
+use load_lpp::mavg;
+use load_lpp::process::parse_cli;
+use load_lpp::read_bad_datetimes;
+use load_lpp::TimeLoad;
 
 fn main() {
     let (

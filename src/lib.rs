@@ -460,6 +460,19 @@ pub fn mavg_parallel_fold(v: &[f64], w: &[f64]) -> Vec<f64> {
     vout
 }
 
+// An configurable and automatic detection of anomal events
+// which can be used for reporting or filtering.
+// The reported anomalies can be appended to the bad datetimes input
+// and thus be removed in the successive processing iteration.
+// pub fn report_anomalies(v: &[f64], anomaly_window: usize, anomaly_load: f64) -> Vec<f64> {
+//     v.iter().enumerate().par_windows(anomaly_window).for_each(|(wl, wi)| {
+//         println!("{:?} {:?}", wl, wi);
+//     });
+//     let anomalies: Vec<f64> = Vec::new();
+//     anomalies
+// }
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
