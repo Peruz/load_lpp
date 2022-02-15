@@ -496,10 +496,11 @@ pub fn find_anomalis(v: &[f64], window_width: usize, min_window_data: usize, lim
                 continue
             }
 
-            // calc lower and upper quartiles with the nearest method
-            // use the standard linear method (R-7) to calculate the IQR
-            // note, no + 1 here because of the zero-starting indexing, i.e.,
+            // Calculate the lower and upper quartiles
+            // using the linear method (R-7) to calculate the IQR.
+            // Note, no + 1 here because of the zero-starting indexing, i.e.,
             // h = (N - 1) * q + 1  => (N - 1) * q
+            // This is analogous to the default method chosen by NumPy.
             let hl = (wli_len as f64 - 1.) * 0.25;
             let hu = (wli_len as f64 - 1.) * 0.75;
             let hl_int = hl.floor() as usize; 
@@ -530,31 +531,6 @@ pub fn find_anomalis(v: &[f64], window_width: usize, min_window_data: usize, lim
     let anomalies: Vec<f64> = Vec::new();
     anomalies
 }
-
-// pub fn find_anomalis(v: &[f64], window_width: usize, anomaly_load: f64) -> Vec<f64> {
-//     let indices: Vec<usize> = (0..v.len()).collect();
-//     v.windows(window_width)
-//         .zip(indices.windows(window_width))
-//         .for_each(|(wl, wi)| {
-//             println!("new window: {:?} {:?}", wl, wi);
-//             // use map to dereference the f64 and usize,
-//             // as they are cheap and implement copy.
-//             // This gives a Vec that owns its elements.
-//             // All the elements are finite and sorted,
-//             // ready for the IQR range calculation.
-//             let wli = wl
-//                 .iter()
-//                 .zip(wi)
-//                 .filter(|(el, _)| el.is_finite())
-//                 .map(|(el, ei)| (*el, *ei))
-//                 .collect::<Vec<(f64, usize)>>()
-//                 .sort_by(|p, s| p.0.partial_cmp(&s.0).unwrap());
-//             let wli_len = vwi.len();
-//         });
-//     println!("{}", anomaly_load);
-//     let anomalies: Vec<f64> = Vec::new();
-//     anomalies
-// }
 
 #[cfg(test)]
 mod tests {
@@ -701,18 +677,9 @@ mod tests {
 
     #[test]
     fn test_find_anomaly_event() {
-        let mut v = vec![1000.; 15 as usize];
-        v[0] = 1.;
-        v[1] = 2.;
-        v[2] = 3.;
-        v[3] = 4.;
-        v[4] = 5.;
-        v[5] = 6.;
-        v[6] = 7.;
-        v[7] = 8.;
-        v[8] = 9.;
-        v[9] = 10.;
-        let _ = find_anomalis(&v, 7usize, 6usize, 5.0f64);
+        let v: Vec<f64> = (1..15).map(|n| n as f64).collect();
+        let anomalies = find_anomalis(&v, 7usize, 6usize, 5.0f64);
+        println!("{:?}", anomalies);
     }
 }
 
