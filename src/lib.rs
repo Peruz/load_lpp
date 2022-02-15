@@ -6,9 +6,9 @@ use rayon::prelude::*;
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
-pub mod log;
-pub mod plot;
-pub mod process;
+pub mod load_log_dad141;
+pub mod load_plot;
+pub mod load_process;
 
 // constants
 pub const VERSION: Option<&'static str> = option_env!("CARGO_PKG_VERSION");
@@ -394,7 +394,7 @@ pub fn mavg(v: &[f64], w: &[f64], max_missing_v: usize, max_missing_wpct: f64) -
 
 // Weighted Moving Average implementation for long windows and
 // with limited number of expected missing values in the time series.
-// This is a parallel implementation of the moving average 
+// This is a parallel implementation of the moving average
 // that splits the multiplication step from the successive sum.
 // This allows SIMD parallelism, but requires second loop over the window for the sum.
 // The SIMD optimization, in addition to the multi-threading, has been confirmed by the assembly.
@@ -416,7 +416,7 @@ pub fn mavg_parallel_simd(v: &[f64], w: &[f64]) -> Vec<f64> {
     v.par_windows(len_w as usize)
         .zip(vout[side as usize..].par_iter_mut())
         .for_each(|(window, vout_e)| {
-            let product: Vec<f64>  = window
+            let product: Vec<f64> = window
                 .iter()
                 .zip(w)
                 .map(|(win_e, wt_e)| win_e * wt_e)
@@ -464,14 +464,97 @@ pub fn mavg_parallel_fold(v: &[f64], w: &[f64]) -> Vec<f64> {
 // which can be used for reporting or filtering.
 // The reported anomalies can be appended to the bad datetimes input
 // and thus be removed in the successive processing iteration.
-// pub fn report_anomalies(v: &[f64], anomaly_window: usize, anomaly_load: f64) -> Vec<f64> {
-//     v.iter().enumerate().par_windows(anomaly_window).for_each(|(wl, wi)| {
-//         println!("{:?} {:?}", wl, wi);
-//     });
+pub fn find_anomalis(v: &[f64], window_width: usize, min_window_data: usize, lim_iqr: f64) -> Vec<f64> {
+    let min_window_data_accepted = 6usize;
+    if window_width < min_window_data {
+        panic!("find_anomalies: impossible to proceed as window_width > min_window_data");
+    }
+    if min_window_data < min_window_data_accepted {
+        panic!("find_anomalies: more than {} data are required", min_window_data_accepted);
+    }
+    let indices: Vec<usize> = (0..v.len()).collect();
+    let mut anomalies: Vec<usize> = Vec::new();
+    for (wl, wi) in v.windows(window_width).zip(indices.windows(window_width)) {
+            println!("new window: {:?} {:?}", wl, wi);
+            // use map to dereference the f64 and usize,
+            // as they are cheap and implement copy.
+            // This gives a Vec that owns its elements.
+            // All the elements are finite and sorted,
+            // ready for the IQR range calculation.
+            //
+            // Maybe I don't need to zip here, can also add indices for NANs
+            // consider keeping wl and wi separated
+            let mut wli: Vec<(f64, usize)> = wl
+                .iter()
+                .zip(wi)
+                .filter(|(el, _)| el.is_finite())
+                .map(|(el, ei)| (*el, *ei))
+                .collect::<Vec<(f64, usize)>>();
+            wli.sort_by(|p, s| p.0.partial_cmp(&s.0).unwrap());
+            let wli_len = wli.len();
+            if wli_len < min_window_data_accepted {
+                continue
+            }
+
+            // calc lower and upper quartiles with the nearest method
+            // use the standard linear method (R-7) to calculate the IQR
+            // note, no + 1 here because of the zero-starting indexing, i.e.,
+            // h = (N - 1) * q + 1  => (N - 1) * q
+            let hl = (wli_len as f64 - 1.) * 0.25;
+            let hu = (wli_len as f64 - 1.) * 0.75;
+            let hl_int = hl.floor() as usize; 
+            let hl_fract = hl.fract(); 
+            let hu_int = hu.floor() as usize; 
+            let hu_fract = hu.fract(); 
+            let ql_int = wli[hl_int].0;
+            let qu_int = wli[hu_int].0;
+            let ql_fract = (wli[hl_int + 1usize].0 - wli[hl_int].0) * hl_fract;
+            let qu_fract = (wli[hu_int + 1usize].0 - wli[hu_int].0) * hu_fract;
+            let ql = ql_int + ql_fract;
+            let qu = qu_int + qu_fract;
+            let qdiff = qu - ql;
+            println!("{:?}", wli);
+            println!("hl {}, hu {}", hl, hu);
+            println!("hl_int {}, hu_int {}", hl_int, hu_int);
+            println!("hl_fract {}, hu_fract {}", hl_fract, hu_fract);
+            println!("ql_int {}, qu_int {}", ql_int, qu_int);
+            println!("ql_fract {}, qu_fract {}", ql_fract, qu_fract);
+            println!("ql {} qu {} qdiff {}", ql, qu, qdiff);
+            if qdiff >= lim_iqr {
+                wli.iter().for_each(|(_, ei)| anomalies.push(*ei));
+                println!("ANOMALY {:?}", anomalies);
+            }
+
+    }
+    println!("{:?}", anomalies);
+    let anomalies: Vec<f64> = Vec::new();
+    anomalies
+}
+
+// pub fn find_anomalis(v: &[f64], window_width: usize, anomaly_load: f64) -> Vec<f64> {
+//     let indices: Vec<usize> = (0..v.len()).collect();
+//     v.windows(window_width)
+//         .zip(indices.windows(window_width))
+//         .for_each(|(wl, wi)| {
+//             println!("new window: {:?} {:?}", wl, wi);
+//             // use map to dereference the f64 and usize,
+//             // as they are cheap and implement copy.
+//             // This gives a Vec that owns its elements.
+//             // All the elements are finite and sorted,
+//             // ready for the IQR range calculation.
+//             let wli = wl
+//                 .iter()
+//                 .zip(wi)
+//                 .filter(|(el, _)| el.is_finite())
+//                 .map(|(el, ei)| (*el, *ei))
+//                 .collect::<Vec<(f64, usize)>>()
+//                 .sort_by(|p, s| p.0.partial_cmp(&s.0).unwrap());
+//             let wli_len = vwi.len();
+//         });
+//     println!("{}", anomaly_load);
 //     let anomalies: Vec<f64> = Vec::new();
 //     anomalies
 // }
-
 
 #[cfg(test)]
 mod tests {
@@ -520,7 +603,9 @@ mod tests {
         timezone *= 60 * 60;
         let timezone_fixed_offset = FixedOffset::east(timezone);
         let mut tl = TimeLoad::from_csv(String::from("./test/datetime.csv"));
-        tl.time.iter_mut().for_each(|t| *t = t.with_timezone(&timezone_fixed_offset));
+        tl.time
+            .iter_mut()
+            .for_each(|t| *t = t.with_timezone(&timezone_fixed_offset));
         println!("{}", tl);
         tl.is_ordered();
         let mut ctl = tl.fill_missing_with_nan();
@@ -538,12 +623,7 @@ mod tests {
         ctl.replace_outliers_with_nan(10000., 18000.);
         println!("{}", ctl);
         let mavg_window = make_window(3., 1., 2usize);
-        let smooth = mavg(
-            &ctl.load[..],
-            &mavg_window,
-            3 as usize,
-            80.,
-        );
+        let smooth = mavg(&ctl.load[..], &mavg_window, 3 as usize, 80.);
         println!("{:?}", smooth);
         ctl.load = smooth;
         ctl.plot_datetime("./test/test_all_steps.svg").unwrap();
@@ -611,9 +691,28 @@ mod tests {
     #[test]
     fn test_logapp_datetime() {
         let dtnow: DateTime<Local> = Local::now();
-        println!("local time is {}", dtnow.to_rfc3339_opts(SecondsFormat::Secs, false));
+        println!(
+            "local time is {}",
+            dtnow.to_rfc3339_opts(SecondsFormat::Secs, false)
+        );
         let local_offset = dtnow.offset();
         println!("local offet is {}", local_offset);
+    }
+
+    #[test]
+    fn test_find_anomaly_event() {
+        let mut v = vec![1000.; 15 as usize];
+        v[0] = 1.;
+        v[1] = 2.;
+        v[2] = 3.;
+        v[3] = 4.;
+        v[4] = 5.;
+        v[5] = 6.;
+        v[6] = 7.;
+        v[7] = 8.;
+        v[8] = 9.;
+        v[9] = 10.;
+        let _ = find_anomalis(&v, 7usize, 6usize, 5.0f64);
     }
 }
 

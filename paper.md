@@ -52,6 +52,10 @@ I wrote the pipeline, other co-authors contributed by highliting the needs, vali
 
 Add a figure with the processing or the load cells?
 
+### Anomalies
+Events: like a single outlier, a car, etc.; based on the difference between successive loads.
+Period: like maintenance or temporal removal of something; based on the IQR range and MAD over a moving window, to avoid trigering for a signle outlier.
+
 ## Plot
 Add anomalies and bad datetimes to the plot.
 Add legend, it makes it more complete.

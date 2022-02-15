@@ -1,7 +1,7 @@
 use chrono::prelude::*;
+use load_lpp::load_process::parse_cli;
 use load_lpp::make_window;
 use load_lpp::mavg;
-use load_lpp::process::parse_cli;
 use load_lpp::read_bad_datetimes;
 use load_lpp::TimeLoad;
 

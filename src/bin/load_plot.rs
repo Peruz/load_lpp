@@ -1,4 +1,4 @@
-use load_lpp::plot::parse_cli;
+use load_lpp::load_plot::parse_cli;
 use load_lpp::TimeLoad;
 
 fn main() {

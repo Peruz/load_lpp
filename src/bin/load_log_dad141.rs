@@ -1,5 +1,5 @@
 use chrono::prelude::*;
-use load_lpp::log::*;
+use load_lpp::load_log_dad141::*;
 use load_lpp::ERROR_FLT_PARSE;
 use load_lpp::{ERROR_STR_GENERAL, ERROR_STR_INVALID, ERROR_STR_NONE, ERROR_STR_SKIPPED};
 use std::convert::TryInto;
@@ -16,13 +16,13 @@ fn main() {
     // get CLI arguments
     let (csv_name, ip, port, mut tcmd_str, minutes, delay, verbose) = parse_cli_log();
 
-    // Init connection with closure that can be used to refresh the connection if needed.
+    // Init connection with a closure, which can later be used to refresh the connection if needed.
     // The closures captures the variables in the environment where they are defined,
     // in this case, it is defined here and it captures: socket and timeout.
     // Then we can call the closure anywhere, without bringing around also socket and timeout.
     // This closure takes no arguments because it only needs these environmental variables,
     // no additional argument (at calling time) is required to init the connection.
-    // It while be called as closure().
+    // It will be called as closure().
     // Arguments are added |args| when the env variables in the defining env should be combined
     // with arguments given at calling time, i.e., closure(arg1, arg2, ...).
     let ipaddr: Ipv4Addr = ip.parse().expect("arg string is not a valid ip address");
