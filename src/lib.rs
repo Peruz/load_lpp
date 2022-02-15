@@ -1,14 +1,15 @@
 #![feature(test)]
 extern crate test;
+use crate::utils::*;
 use chrono::prelude::*;
 use plotters::prelude::*;
-use rayon::prelude::*;
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
 pub mod load_log_dad141;
 pub mod load_plot;
 pub mod load_process;
+pub mod utils;
 
 // constants
 pub const VERSION: Option<&'static str> = option_env!("CARGO_PKG_VERSION");
@@ -262,276 +263,6 @@ impl TimeLoad {
     }
 }
 
-/// If longer than one week, keep year, month and day, drop hours;
-/// if not, but longer than one day, add hours.
-/// Otherwise, shorter than one day, keep also minutes.
-pub fn suitable_xfmt(d: chrono::Duration) -> &'static str {
-    let xfmt = if d > chrono::Duration::weeks(1) {
-        "%y-%m-%d"
-    } else if d > chrono::Duration::days(1) {
-        "%m-%d %H"
-    } else {
-        "%d %H:%M"
-    };
-    return xfmt;
-}
-
-impl std::fmt::Display for TimeLoad {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "datetime, load [kg]\n")?;
-        for (t, w) in self.time.iter().zip(self.load.iter()) {
-            write!(f, "{},{}\n", t.to_rfc3339(), w)?
-        }
-        Ok(())
-    }
-}
-
-/// Read a list of bad datetimes to skip, always from RFC 3339 - ISO 8601 format.
-pub fn read_bad_datetimes<P>(fin: P) -> Vec<DateTime<FixedOffset>>
-where
-    P: AsRef<Path>,
-{
-    let file = File::open(fin).unwrap();
-    let buf = BufReader::new(file);
-    let mut bad_datetimes: Vec<DateTime<FixedOffset>> = Vec::new();
-    for l in buf.lines() {
-        let l_unwrap = match l {
-            Ok(l_ok) => l_ok,
-            Err(l_err) => {
-                println!("Err, could not read/unwrap line {}", l_err);
-                continue;
-            }
-        };
-        bad_datetimes.push(DateTime::parse_from_rfc3339(&l_unwrap).unwrap());
-    }
-    return bad_datetimes;
-}
-
-pub fn min_and_max<'a, I, T>(mut s: I) -> (T, T)
-where
-    I: Iterator<Item = &'a T>,
-    T: 'a + std::cmp::PartialOrd + Clone,
-{
-    let (mut min, mut max) = match s.next() {
-        Some(v) => (v, v),
-        None => panic!("could not iterate over slice"),
-    };
-    for es in s {
-        if es > max {
-            max = es
-        } else if es < min {
-            min = es
-        }
-    }
-    return (min.clone(), max.clone());
-}
-
-pub fn make_window(w_central: f64, w_side: f64, side: usize) -> Vec<f64> {
-    let w_step = (w_central - w_side) / (side as f64);
-    let up = (0..side + 1).map(|n| w_side + (n as f64 * w_step));
-    let down = up.clone().rev().skip(1);
-    let updown = up.chain(down).collect();
-    updown
-}
-
-// Flexible Weighted Moving Average implementation with parameters to handle the maximum missing information.
-/// Roll the weighted moving window w over the data v,
-/// also filling the NAN values with the weighted average when possible:
-/// 1) sufficient number of data, i.e., number missing data under the window < max_missing_v;
-/// 2) the window weight associated with the present data is sufficient, i.e.,
-///     the percentage of missing weight is < than max_missing_wpct.
-pub fn mavg(v: &[f64], w: &[f64], max_missing_v: usize, max_missing_wpct: f64) -> Vec<f64> {
-    let len_v: i32 = v.len() as i32;
-    let len_w: i32 = w.len() as i32;
-    assert!(
-        len_w < len_v,
-        "length of moving average window > length of vector"
-    );
-    assert!(
-        len_w % 2 == 1,
-        "the moving average window has an even number of elements; \
-        it should be odd to have a central element"
-    );
-    let side: i32 = (len_w - 1) / 2;
-    let sum_all_w: f64 = w.iter().sum();
-    let max_missing_w: f64 = sum_all_w / 100. * max_missing_wpct;
-    let mut vout: Vec<f64> = Vec::with_capacity(len_v as usize);
-    for i in 0..len_v {
-        let mut missing_v = 0;
-        let mut missing_w = 0.;
-        let mut sum_ve_we = 0.;
-        let mut sum_we = 0.;
-        let mut ve: f64;
-        let vl = i - side;
-        let vr = i + side + 1;
-        for (j, we) in (vl..vr).zip(w.iter()) {
-            if (j < 0) || (j >= len_v) {
-                missing_v += 1;
-                missing_w += we;
-            } else {
-                ve = v[j as usize];
-                if ve.is_nan() {
-                    missing_v += 1;
-                    missing_w += we;
-                } else {
-                    sum_ve_we += ve * we;
-                    sum_we += we;
-                }
-            }
-            if (missing_v > max_missing_v) || (missing_w > max_missing_w) {
-                sum_ve_we = f64::NAN;
-                println!(
-                    "setting to NAN; {} missing data with limit {}, {} missing window weight with limit {}",
-                    missing_v, max_missing_v, missing_w, max_missing_w,
-                );
-                break;
-            }
-        }
-        vout.push(sum_ve_we / sum_we);
-    }
-    vout
-}
-
-// Weighted Moving Average implementation for long windows and
-// with limited number of expected missing values in the time series.
-// This is a parallel implementation of the moving average
-// that splits the multiplication step from the successive sum.
-// This allows SIMD parallelism, but requires second loop over the window for the sum.
-// The SIMD optimization, in addition to the multi-threading, has been confirmed by the assembly.
-pub fn mavg_parallel_simd(v: &[f64], w: &[f64]) -> Vec<f64> {
-    let len_v: usize = v.len();
-    let len_w: usize = w.len();
-    assert!(
-        len_w < len_v,
-        "length of moving average window > length of vector"
-    );
-    assert!(
-        len_w % 2 == 1,
-        "the moving average window has an even number of elements; \
-        it should be odd to have a central element"
-    );
-    let sum_all_w: f64 = w.iter().sum();
-    let side: usize = (len_w - 1) / 2;
-    let mut vout: Vec<f64> = vec![f64::NAN; len_v];
-    v.par_windows(len_w as usize)
-        .zip(vout[side as usize..].par_iter_mut())
-        .for_each(|(window, vout_e)| {
-            let product: Vec<f64> = window
-                .iter()
-                .zip(w)
-                .map(|(win_e, wt_e)| win_e * wt_e)
-                .collect();
-            let sum: f64 = product.iter().sum();
-            *vout_e = sum / sum_all_w;
-        });
-    vout
-}
-
-// Weighted Moving Average implementation for long windows,
-// for limited number of expected missing values and edge devices with limited memory.
-// This is a parallel implementation of the moving average that
-// allows the sum of the weighted loads to be directly executed,
-// i.e., pair-wise multiplication proceed together with the sum.
-pub fn mavg_parallel_fold(v: &[f64], w: &[f64]) -> Vec<f64> {
-    let len_v: usize = v.len();
-    let len_w: usize = w.len();
-    assert!(
-        len_w < len_v,
-        "length of moving average window > length of vector"
-    );
-    assert!(
-        len_w % 2 == 1,
-        "the moving average window has an even number of elements; \
-        it should be odd to have a central element"
-    );
-    let sum_all_w: f64 = w.iter().sum();
-    let side: usize = (len_w - 1) / 2;
-    let mut vout: Vec<f64> = vec![f64::NAN; len_v];
-    v.par_windows(len_w as usize)
-        .zip(vout[side as usize..].par_iter_mut())
-        .for_each(|(window, vout_e)| {
-            *vout_e = window
-                .iter()
-                .zip(w)
-                .map(|(win_e, wt_e)| win_e * wt_e)
-                .fold(0., |acc, x| acc + x)
-                / sum_all_w;
-        });
-    vout
-}
-
-// An configurable and automatic detection of anomal events
-// which can be used for reporting or filtering.
-// The reported anomalies can be appended to the bad datetimes input
-// and thus be removed in the successive processing iteration.
-pub fn find_anomalis(v: &[f64], window_width: usize, min_window_data: usize, lim_iqr: f64) -> Vec<f64> {
-    let min_window_data_accepted = 6usize;
-    if window_width < min_window_data {
-        panic!("find_anomalies: impossible to proceed as window_width > min_window_data");
-    }
-    if min_window_data < min_window_data_accepted {
-        panic!("find_anomalies: more than {} data are required", min_window_data_accepted);
-    }
-    let indices: Vec<usize> = (0..v.len()).collect();
-    let mut anomalies: Vec<usize> = Vec::new();
-    for (wl, wi) in v.windows(window_width).zip(indices.windows(window_width)) {
-            println!("new window: {:?} {:?}", wl, wi);
-            // use map to dereference the f64 and usize,
-            // as they are cheap and implement copy.
-            // This gives a Vec that owns its elements.
-            // All the elements are finite and sorted,
-            // ready for the IQR range calculation.
-            //
-            // Maybe I don't need to zip here, can also add indices for NANs
-            // consider keeping wl and wi separated
-            let mut wli: Vec<(f64, usize)> = wl
-                .iter()
-                .zip(wi)
-                .filter(|(el, _)| el.is_finite())
-                .map(|(el, ei)| (*el, *ei))
-                .collect::<Vec<(f64, usize)>>();
-            wli.sort_by(|p, s| p.0.partial_cmp(&s.0).unwrap());
-            let wli_len = wli.len();
-            if wli_len < min_window_data_accepted {
-                continue
-            }
-
-            // Calculate the lower and upper quartiles
-            // using the linear method (R-7) to calculate the IQR.
-            // Note, no + 1 here because of the zero-starting indexing, i.e.,
-            // h = (N - 1) * q + 1  => (N - 1) * q
-            // This is analogous to the default method chosen by NumPy.
-            let hl = (wli_len as f64 - 1.) * 0.25;
-            let hu = (wli_len as f64 - 1.) * 0.75;
-            let hl_int = hl.floor() as usize; 
-            let hl_fract = hl.fract(); 
-            let hu_int = hu.floor() as usize; 
-            let hu_fract = hu.fract(); 
-            let ql_int = wli[hl_int].0;
-            let qu_int = wli[hu_int].0;
-            let ql_fract = (wli[hl_int + 1usize].0 - wli[hl_int].0) * hl_fract;
-            let qu_fract = (wli[hu_int + 1usize].0 - wli[hu_int].0) * hu_fract;
-            let ql = ql_int + ql_fract;
-            let qu = qu_int + qu_fract;
-            let qdiff = qu - ql;
-            println!("{:?}", wli);
-            println!("hl {}, hu {}", hl, hu);
-            println!("hl_int {}, hu_int {}", hl_int, hu_int);
-            println!("hl_fract {}, hu_fract {}", hl_fract, hu_fract);
-            println!("ql_int {}, qu_int {}", ql_int, qu_int);
-            println!("ql_fract {}, qu_fract {}", ql_fract, qu_fract);
-            println!("ql {} qu {} qdiff {}", ql, qu, qdiff);
-            if qdiff >= lim_iqr {
-                wli.iter().for_each(|(_, ei)| anomalies.push(*ei));
-                println!("ANOMALY {:?}", anomalies);
-            }
-
-    }
-    println!("{:?}", anomalies);
-    let anomalies: Vec<f64> = Vec::new();
-    anomalies
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -676,10 +407,19 @@ mod tests {
     }
 
     #[test]
-    fn test_find_anomaly_event() {
+    fn test_find_anomaly_homogeneous() {
+        let a = [5.0f64; 15];
+        let expected: Vec<f64> = Vec::new();
+        let anomalies = find_anomalis(&a, 7usize, 6usize, 5.0f64);
+        assert!(anomalies == expected);
+    }
+
+    #[test]
+    fn test_find_anomaly_linear() {
         let v: Vec<f64> = (1..15).map(|n| n as f64).collect();
+        let expected: Vec<f64> = Vec::new();
         let anomalies = find_anomalis(&v, 7usize, 6usize, 5.0f64);
-        println!("{:?}", anomalies);
+        assert!(anomalies == expected);
     }
 }
 
