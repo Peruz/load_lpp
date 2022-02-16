@@ -1,11 +1,11 @@
 #![feature(test)]
 extern crate test;
-use crate::utils::*;
 use chrono::prelude::*;
 use plotters::prelude::*;
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
+pub use crate::utils::*;
 pub mod load_log_dad141;
 pub mod load_plot;
 pub mod load_process;
@@ -263,6 +263,16 @@ impl TimeLoad {
     }
 }
 
+impl std::fmt::Display for TimeLoad {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "datetime, load [kg]\n")?;
+        for (t, w) in self.time.iter().zip(self.load.iter()) {
+            write!(f, "{},{}\n", t.to_rfc3339(), w)?
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -410,16 +420,39 @@ mod tests {
     fn test_find_anomaly_homogeneous() {
         let a = [5.0f64; 15];
         let expected: Vec<f64> = Vec::new();
-        let anomalies = find_anomalis(&a, 7usize, 6usize, 5.0f64);
-        assert!(anomalies == expected);
+        let (_, anomalies_load) = find_anomalis(&a, 7usize, 6usize, 5.0f64);
+        assert!(anomalies_load == expected);
     }
 
     #[test]
     fn test_find_anomaly_linear() {
         let v: Vec<f64> = (1..15).map(|n| n as f64).collect();
         let expected: Vec<f64> = Vec::new();
-        let anomalies = find_anomalis(&v, 7usize, 6usize, 5.0f64);
-        assert!(anomalies == expected);
+        let (_, anomalies_load) = find_anomalis(&v, 7usize, 6usize, 5.0f64);
+        assert!(anomalies_load == expected);
+    }
+
+    #[test]
+    fn test_find_anomaly_nans() {
+        let mut v: Vec<f64> = (1..15).map(|n| n as f64).collect();
+        v.iter_mut().enumerate().for_each(|(i, e)| {
+            if i < 6usize {
+                *e = f64::NAN
+            }
+        });
+        let (_, _) = find_anomalis(&v, 7usize, 6usize, 5.0f64);
+    }
+
+    #[test]
+    fn test_find_anomaly_anomalous() {
+        let mut v: Vec<f64> = (1..15).map(|n| n as f64).collect();
+        v.iter_mut().enumerate().for_each(|(i, e)| {
+            if i < 8usize {
+                *e = 20.
+            }
+        });
+        let (anomalies_index, anomalies_load) = find_anomalis(&v, 7usize, 6usize, 5.0f64);
+        println!("load anomalies are {:?}, with indices {:?}", anomalies_load, anomalies_index);
     }
 }
 

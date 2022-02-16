@@ -193,7 +193,7 @@ pub fn mavg_parallel_fold(v: &[f64], w: &[f64]) -> Vec<f64> {
     vout
 }
 
-// An configurable and automatic detection of anomal events
+// A configurable and automatic detection of anomal events
 // which can be used for reporting or filtering.
 // The reported anomalies can be appended to the bad datetimes input
 // and thus be removed in the successive processing iteration.
@@ -204,15 +204,12 @@ pub fn mavg_parallel_fold(v: &[f64], w: &[f64]) -> Vec<f64> {
 // All the elements are finite and sorted,
 // ready for the IQR range calculation.
 //
-// Maybe I don't need to zip here, can also add indices for NANs
-// consider keeping wl and wi separated
-//
 pub fn find_anomalis(
     v: &[f64],
     window_width: usize,
     min_window_data: usize,
-    lim_iqr: f64,
-) -> Vec<f64> {
+    max_iqr: f64,
+) -> (Vec<usize>, Vec<f64>) {
     let min_window_data_accepted = 6usize;
     if window_width < min_window_data {
         panic!("find_anomalies: impossible to proceed as window_width > min_window_data");
@@ -224,69 +221,8 @@ pub fn find_anomalis(
         );
     }
     let indices: Vec<usize> = (0..v.len()).collect();
-    let mut anomalies: Vec<usize> = Vec::new();
-    for (wl, wi) in v.windows(window_width).zip(indices.windows(window_width)) {
-        println!("new window: {:?} {:?}", wl, wi);
-        let mut wli: Vec<(f64, usize)> = wl
-            .iter()
-            .zip(wi)
-            .filter(|(el, _)| el.is_finite())
-            .map(|(el, ei)| (*el, *ei))
-            .collect::<Vec<(f64, usize)>>();
-        wli.sort_by(|p, s| p.0.partial_cmp(&s.0).unwrap());
-        let wli_len = wli.len();
-        if wli_len < min_window_data_accepted {
-            continue;
-        }
-
-        let hl = (wli_len as f64 - 1.) * 0.25;
-        let hu = (wli_len as f64 - 1.) * 0.75;
-        let hl_int = hl.floor() as usize;
-        let hl_fract = hl.fract();
-        let hu_int = hu.floor() as usize;
-        let hu_fract = hu.fract();
-        let ql_int = wli[hl_int].0;
-        let qu_int = wli[hu_int].0;
-        let ql_fract = (wli[hl_int + 1usize].0 - wli[hl_int].0) * hl_fract;
-        let qu_fract = (wli[hu_int + 1usize].0 - wli[hu_int].0) * hu_fract;
-        let ql = ql_int + ql_fract;
-        let qu = qu_int + qu_fract;
-        let qdiff = qu - ql;
-        println!("{:?}", wli);
-        println!("hl {}, hu {}", hl, hu);
-        println!("hl_int {}, hu_int {}", hl_int, hu_int);
-        println!("hl_fract {}, hu_fract {}", hl_fract, hu_fract);
-        println!("ql_int {}, qu_int {}", ql_int, qu_int);
-        println!("ql_fract {}, qu_fract {}", ql_fract, qu_fract);
-        println!("ql {} qu {} qdiff {}", ql, qu, qdiff);
-        if qdiff >= lim_iqr {
-            wli.iter().for_each(|(_, ei)| anomalies.push(*ei));
-            println!("ANOMALY {:?}", anomalies);
-        }
-    }
-    println!("{:?}", anomalies);
-    let anomalies: Vec<f64> = Vec::new();
-    anomalies
-}
-
-pub fn find_anomalis_split(
-    v: &[f64],
-    window_width: usize,
-    min_window_data: usize,
-    lim_iqr: f64,
-) -> Vec<f64> {
-    let min_window_data_accepted = 6usize;
-    if window_width < min_window_data {
-        panic!("find_anomalies: impossible to proceed as window_width > min_window_data");
-    }
-    if min_window_data < min_window_data_accepted {
-        panic!(
-            "find_anomalies: more than {} data are required",
-            min_window_data_accepted
-        );
-    }
-    let indices: Vec<usize> = (0..v.len()).collect();
-    // let mut anomalies: Vec<usize> = Vec::new();
+    let mut anomalies_index: Vec<usize> = Vec::new();
+    let mut anomalies_load: Vec<f64> = Vec::new();
     for (wl, wi) in v.windows(window_width).zip(indices.windows(window_width)) {
         println!("new window: {:?} {:?}", wl, wi);
         let (ql, qu, iqr) = match calculate_iqr(wl, min_window_data_accepted) {
@@ -296,11 +232,15 @@ pub fn find_anomalis_split(
                 continue
             },
         };
+        if iqr > max_iqr {
+            anomalies_index.append(&mut wi.to_owned());
+            anomalies_load.append(&mut wl.to_owned());
+            println!("iqr {}, upper {} and lower {}\nfound anomaly in window:\n{:?}\n{:?}", ql, qu, iqr, wi, wl);
+        }
 
-        println!("OK {} {} {}", ql, qu, iqr);
     }
-    let anomalies: Vec<f64> = Vec::new();
-    anomalies
+    return(anomalies_index, anomalies_load)
+
 }
 
 // Calculate the lower and upper quartiles
@@ -350,7 +290,7 @@ impl fmt::Display for LenErr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "Invalid length, got {}, required is  {:?} <= len >= {:?}",
+            "Invalid length, got {}, required is >= {:?} and <= {:?}",
             self.got_len, self.min_len, self.max_len
         )
     }
