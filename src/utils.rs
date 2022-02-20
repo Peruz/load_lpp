@@ -309,12 +309,18 @@ impl fmt::Display for LenErr {
     }
 }
 
-
-pub fn compare_f64(a: f64, b: f64) -> bool {
+pub fn compare_f64_exact(a: f64, b: f64) -> bool {
     (a.is_nan() && b.is_nan()) || (a == b)
 }
 
+pub fn compare_vecf64_exact(va: &[f64], vb: &[f64]) -> bool {
+    (va.len() == vb.len()) && va.iter().zip(vb).all(|(a, b)| compare_f64_exact(*a, *b))
+}
 
-pub fn compare_vecf64(va: &[f64], vb: &[f64]) -> bool {
-    (va.len() == vb.len()) && va.iter().zip(vb).all(|(a, b)| compare_f64(*a, *b))
+pub fn compare_f64_approx(a: f64, b: f64, max: f64) -> bool {
+    (a.is_nan() && b.is_nan()) || ((a - b).abs() < max)
+}
+
+pub fn compare_vecf64_approx(va: &[f64], vb: &[f64]) -> bool {
+    (va.len() == vb.len()) && va.iter().zip(vb).all(|(a, b)| compare_f64_approx(*a, *b, 0.1f64))
 }

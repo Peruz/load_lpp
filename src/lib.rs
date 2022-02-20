@@ -273,18 +273,21 @@ impl std::fmt::Display for TimeLoad {
     }
 }
 
+
+
+// use crate::utils::compare_vecf64;
+// Run the tests with:
+// cargo test -- --nocapture
+// to allow println!(...) to stdout.
 #[cfg(test)]
 mod tests {
 
     use super::*;
-    // use crate::utils::compare_vecf64;
-    // Run the tests with:
-    // cargo test -- --nocapture
-    // to allow println!(...) to stdout.
 
 
-    // test the correct correction for the daylight saving
     #[test]
+    // Test the correct correction for the daylight saving,
+    // needed for long term monitorings
     fn datetime_parsing_with_timezone() {
 
         let timezone_hours: i32 = -8;
@@ -316,101 +319,8 @@ mod tests {
 
 
     #[test]
-    fn test_all_steps() {
-        let mut timezone: i32 = -8;
-        timezone *= 60 * 60;
-        let timezone_fixed_offset = FixedOffset::east(timezone);
-        let mut tl = TimeLoad::from_csv(String::from("./test/datetime.csv"));
-        tl.time
-            .iter_mut()
-            .for_each(|t| *t = t.with_timezone(&timezone_fixed_offset));
-        println!("{}", tl);
-        tl.is_ordered();
-        let mut ctl = tl.fill_missing_with_nan();
-        println!("{}", ctl);
-        ctl.is_ordered_and_continuous();
-        let bad = read_bad_datetimes("./test/bad_datetimes.csv");
-        ctl.replace_bad_datetimes_with_nan(bad);
-        println!("{}", ctl);
-        let time_init = NaiveTime::parse_from_str("01:02", "%H:%M").unwrap();
-        let time_stop = NaiveTime::parse_from_str("01:05", "%H:%M").unwrap();
-        ctl.replace_bad_time_interval_with_nan(time_init, time_stop);
-        println!("{}", ctl);
-        ctl.replace_errors_with_nan(99995.);
-        println!("{}", ctl);
-        ctl.replace_outliers_with_nan(10000., 18000.);
-        println!("{}", ctl);
-        let mavg_window = make_window(3., 1., 2usize);
-        let smooth = mavg(&ctl.load[..], &mavg_window, 3 as usize, 80.);
-        println!("{:?}", smooth);
-        ctl.load = smooth;
-        ctl.plot_datetime("./test/test_all_steps.svg").unwrap();
-        println!("{}", ctl);
-        ctl.to_csv("./test/datetime_processed.csv");
-        println!("saved to ./test/test_all_steps_processed.csv");
-    }
-
-
-    #[test]
-    fn test_all_steps_parallel() {
-        let mut timezone: i32 = -8;
-        timezone *= 60 * 60;
-        let timezone_fixed_offset = FixedOffset::east(timezone);
-        let mut tl = TimeLoad::from_csv(String::from("./test/datetime_for_parallel.csv"));
-        tl.time
-            .iter_mut()
-            .for_each(|t| *t = t.with_timezone(&timezone_fixed_offset));
-        println!("{}", tl);
-        tl.is_ordered();
-        let mut ctl = tl.fill_missing_with_nan();
-        println!("{}", ctl);
-        ctl.is_ordered_and_continuous();
-        let bad = read_bad_datetimes("./test/bad_datetimes.csv");
-        ctl.replace_bad_datetimes_with_nan(bad);
-        println!("{}", ctl);
-        let time_init = NaiveTime::parse_from_str("01:02", "%H:%M").unwrap();
-        let time_stop = NaiveTime::parse_from_str("01:05", "%H:%M").unwrap();
-        ctl.replace_bad_time_interval_with_nan(time_init, time_stop);
-        println!("{}", ctl);
-        ctl.replace_errors_with_nan(99995.);
-        println!("{}", ctl);
-        ctl.replace_outliers_with_nan(10000., 18000.);
-        println!("{}", ctl);
-        let mavg_window = make_window(3., 1., 2usize);
-        let smooth = mavg_parallel_fold(&ctl.load[..], &mavg_window);
-        let correct_smooth = vec![
-            f64::NAN,
-            f64::NAN,
-            13003.0,
-            13004.0,
-            13005.0,
-            13006.0,
-            13007.0,
-            13008.0,
-            13008.888888888889,
-            13009.666666666666,
-            13010.333333333334,
-            13011.111111111111,
-            13012.0,
-            13013.0,
-            13014.0,
-            13015.0,
-            13016.0,
-            13017.0,
-            13018.0,
-            f64::NAN,
-            f64::NAN,
-        ];
-        assert! {compare_vecf64(&smooth, &correct_smooth)};
-        ctl.load = smooth;
-        ctl.to_csv("./test/test_all_steps_parallel.csv");
-        println!("saved to ./test/datetime_processed_parallel.csv");
-    }
-
-
-
-    #[test]
-    fn test_logapp_datetime() {
+    // Get the reading datetime with the correct offset
+    fn test_get_current_datetime_offset() {
         let dtnow: DateTime<Local> = Local::now();
         println!(
             "local time is {}",
@@ -422,6 +332,7 @@ mod tests {
 
 
     #[test]
+    // Assert that a homogenous load time series gives no anomalies
     fn test_find_anomaly_homogeneous() {
         let a = [5.0f64; 15];
         let expected: Vec<f64> = Vec::new();
@@ -431,6 +342,7 @@ mod tests {
 
 
     #[test]
+    // Assert that a linear load time series with small increment gives no anomalies
     fn test_find_anomaly_linear() {
         let v: Vec<f64> = (1..15).map(|n| n as f64).collect();
         let expected: Vec<f64> = Vec::new();
@@ -440,6 +352,7 @@ mod tests {
 
 
     #[test]
+    // Assert that a NANs are correctly handled while finding anomalies
     fn test_find_anomaly_nans() {
         let mut v: Vec<f64> = (1..15).map(|n| n as f64).collect();
         v.iter_mut().enumerate().for_each(|(i, e)| {
@@ -447,43 +360,198 @@ mod tests {
                 *e = f64::NAN
             }
         });
-        let (_, _) = find_anomalies(&v, 7usize, 6usize, 5.0f64);
+        let expected: Vec<f64> = Vec::new();
+        let (_, anomalies_load) = find_anomalies(&v, 7usize, 6usize, 5.0f64);
+        assert!(anomalies_load == expected);
     }
 
 
     #[test]
-    fn test_find_anomaly_anomalous() {
+    // Assert that the anomalies are correctly identified by adding a big discontinuity
+    fn test_find_anomaly_discontinuity() {
         let mut v: Vec<f64> = (1..15).map(|n| n as f64).collect();
         v.iter_mut().enumerate().for_each(|(i, e)| {
             if i < 8usize {
                 *e = 20.
             }
         });
-        let (anomalies_index, anomalies_load) = find_anomalies(&v, 7usize, 6usize, 5.0f64);
-        println!(
-            "load anomalies are {:?}, with indices {:?}",
-            anomalies_load, anomalies_index
-        );
+        let (_, anomalies_load) = find_anomalies(&v, 7usize, 6usize, 5.0f64);
+        let expected: Vec<f64> = vec![20.0, 20.0, 20.0, 20.0, 9.0, 10.0, 11.0, 12.0, 13.0];
+        assert!(anomalies_load == expected);
     }
 
 
     #[test]
-    fn test_deduplicate() {
+    // Deduplicate removes consecutive repeated elements,
+    // thus if the input is sorted dedup returns no duplicates
+    fn test_deduplicate_load_series() {
         let mut v_all = vec![1., 2., 2., 2., 3., 4., 4., 5., 6., 6.];
         let v_unique = vec![1., 2., 3., 4., 5., 6.];
         let v_duplicates = vec![2., 2., 4., 6.];
-        // deduplicate removes consecutive repeated elements,
-        // thus if the input is sorted dedup returns no duplicates
+
         v_all.sort_by(|a, b| a.partial_cmp(b).unwrap());
         let (dedup, duplicates) = v_all.partition_dedup_by(|a, b| a == b);
+
         let mut duplicates = duplicates.to_owned();
         duplicates.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        println!("test:\ndedup {:?} == {:?}?\nduplicates {:?} == {:?}?", dedup, v_unique, duplicates, v_duplicates);
+
+        // println!("test:\ndedup {:?} == {:?}?\nduplicates {:?} == {:?}?", dedup, v_unique, duplicates, v_duplicates);
         assert!(v_unique == dedup);
         assert!(v_duplicates == duplicates);
     }
 
+
+    #[test]
+    // full processing test, including all the optional steps
+    fn test_all_steps() {
+
+        // define time zone for the test
+        let mut timezone: i32 = -8;
+        timezone *= 60 * 60;
+        let timezone_fixed_offset = FixedOffset::east(timezone);
+
+        // read the time series and adjust to the deifned time zone
+        let mut tl = TimeLoad::from_csv(String::from("./test/datetime.csv"));
+        tl.time.iter_mut().for_each(|t| *t = t.with_timezone(&timezone_fixed_offset));
+        println!("{}", tl);
+
+        // make sure the time series is ordered before processing
+        tl.is_ordered();
+
+        // make continuous by filling missing values with NANs, then assert continuity
+        let mut ctl = tl.fill_missing_with_nan();
+        ctl.is_ordered_and_continuous();
+        println!("{}", ctl);
+
+        // read bad datetimes and replace them with NANs
+        let bad = read_bad_datetimes("./test/bad_datetimes.csv");
+        ctl.replace_bad_datetimes_with_nan(bad);
+        println!("{}", ctl);
+
+        // define a daily interval over which values should be ignored (maintenance, etc.),
+        // then these intervals to NAN 
+        let time_init = NaiveTime::parse_from_str("01:02", "%H:%M").unwrap();
+        let time_stop = NaiveTime::parse_from_str("01:05", "%H:%M").unwrap();
+        ctl.replace_bad_time_interval_with_nan(time_init, time_stop);
+        println!("{}", ctl);
+
+        // replace errors with NANs, in this case all the values above 99995.
+        ctl.replace_errors_with_nan(99995.);
+        println!("{}", ctl);
+
+
+        // keep only load values within a specific range, set the outliers to NAN
+        ctl.replace_outliers_with_nan(10000., 18000.);
+        println!("{}", ctl);
+
+
+        // apply a weighted moving average to smooth the filtered time series
+        let mavg_window = make_window(3., 1., 5usize);
+        let smooth = mavg(&ctl.load[..], &mavg_window, 5 as usize, 80.);
+        println!("{:?}", smooth);
+
+        // in this case simply replace the original load series with the smooth one;
+        // if preferred keep both and compare
+        ctl.load = smooth;
+
+        // plot the filtered and smooth load series
+        ctl.plot_datetime("./test/test_all_steps.svg").unwrap();
+
+        // save the filtered and smooth load series
+        ctl.to_csv("./test/datetime_processed.csv");
+
+    }
+
+
+    #[test]
+    // full processing test, including all the optional steps
+    fn test_all_steps_parallel() {
+
+        // define time zone for the test
+        let mut timezone: i32 = -8;
+        timezone *= 60 * 60;
+        let timezone_fixed_offset = FixedOffset::east(timezone);
+
+        // read the time series and adjust to the deifned time zone
+        let mut tl = TimeLoad::from_csv(String::from("./test/datetime_for_parallel.csv"));
+        tl.time.iter_mut().for_each(|t| *t = t.with_timezone(&timezone_fixed_offset));
+        println!("{}", tl);
+
+        // make sure the time series is ordered before processing
+        tl.is_ordered();
+
+        // make continuous by filling missing values with NANs, then assert continuity
+        let mut ctl = tl.fill_missing_with_nan();
+        ctl.is_ordered_and_continuous();
+        println!("{}", ctl);
+
+        // read bad datetimes and replace them with NANs
+        let bad = read_bad_datetimes("./test/bad_datetimes.csv");
+        ctl.replace_bad_datetimes_with_nan(bad);
+        println!("{}", ctl);
+
+        // define a daily interval over which values should be ignored (maintenance, etc.),
+        // then these intervals to NAN 
+        let time_init = NaiveTime::parse_from_str("01:02", "%H:%M").unwrap();
+        let time_stop = NaiveTime::parse_from_str("01:05", "%H:%M").unwrap();
+        ctl.replace_bad_time_interval_with_nan(time_init, time_stop);
+        println!("{}", ctl);
+
+        // replace errors with NANs, in this case all the values above 99995.
+        ctl.replace_errors_with_nan(99995.);
+        println!("{}", ctl);
+
+
+        // keep only load values within a specific range, set the outliers to NAN
+        ctl.replace_outliers_with_nan(10000., 18000.);
+        println!("{}", ctl);
+
+
+        // apply a weighted moving average to smooth the filtered time series
+        let mavg_window = make_window(3., 1., 2usize);
+        let smooth = mavg_parallel_fold(&ctl.load[..], &mavg_window);
+        println!("{:?}", smooth);
+
+        let correct_smooth = vec![
+            f64::NAN,
+            f64::NAN,
+            13003.0,
+            13004.0,
+            13005.0,
+            13006.0,
+            13007.0,
+            13008.0,
+            13008.8,
+            13009.6,
+            13010.3,
+            13011.1,
+            13012.0,
+            13013.0,
+            13014.0,
+            13015.0,
+            13016.0,
+            13017.0,
+            13018.0,
+            f64::NAN,
+            f64::NAN,
+        ];
+
+        assert! {compare_vecf64_approx(&smooth, &correct_smooth)};
+
+        // in this case simply replace the original load series with the smooth one;
+        // if preferred keep both and compare
+        ctl.load = smooth;
+
+        // plot the filtered and smooth load series
+        ctl.plot_datetime("./test/test_all_steps.svg").unwrap();
+
+        // save the filtered and smooth load series
+        ctl.to_csv("./test/datetime_processed.csv");
+
+    }
+
 }
+
 
 #[bench]
 fn bench_mavg_parallel_simd(b: &mut test::Bencher) {
@@ -494,6 +562,7 @@ fn bench_mavg_parallel_simd(b: &mut test::Bencher) {
     });
 }
 
+
 #[bench]
 fn bench_mavg_parallel_fold(b: &mut test::Bencher) {
     let v = vec![1000.; 1E+5 as usize];
@@ -502,6 +571,7 @@ fn bench_mavg_parallel_fold(b: &mut test::Bencher) {
         mavg_parallel_fold(&v, &w);
     });
 }
+
 
 #[bench]
 fn bench_mavg(b: &mut test::Bencher) {
