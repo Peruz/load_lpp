@@ -193,15 +193,14 @@ pub fn mavg_parallel_fold(v: &[f64], w: &[f64]) -> Vec<f64> {
     vout
 }
 
+// A configurable and automatic detection of anomalous periods.
 // Anomalies can be periods that have to be removed
 // or the actual events of interest.
-// A configurable and automatic detection of anomalous events,
-// which can be reported or filtered.
 // For example, the reported anomalies can be appended to the bad datetimes input
 // and thus be removed in the successive processing iteration.
 //
 // Run a rolling window of width `window_width` over the vector `v`.
-// Make sure `window_width` is larger than the minum number of data required by the user `min_window_data`,
+// Make sure `window_width` is larger than the minimum number of data required by the user `min_window_data`,
 // and that this number is statistically sufficient for calculating the IQR, see `MIN_DATA_IQR`.
 //
 // Return unique values of the indices and loads that fell in an anomalous window.
@@ -211,37 +210,46 @@ pub fn find_anomalies(
     min_window_data: usize,
     max_iqr: f64,
 ) -> (Vec<usize>, Vec<f64>) {
-    // initial length checks
+    // Initial length checks for consistent lengths
     pub const MIN_DATA_IQR: usize = 6usize;
-    if min_window_data > MIN_DATA_IQR {
-        panic!("find_anomalies: more than {} data are required for the IQR calculation", MIN_DATA_IQR);
+    if min_window_data < MIN_DATA_IQR {
+        panic!(
+            "find_anomalies: more than {} data are required for the IQR calculation",
+            MIN_DATA_IQR
+        );
     }
-    if min_window_data < window_width {
+    if min_window_data > window_width {
         panic!("find_anomalies: impossible to proceed as window_width < min_window_data");
     }
-    // the vectors to store the anomalous values to be returned
     let mut anomalies_index: Vec<usize> = Vec::new();
-    let mut anomalies_load: Vec<f64> = Vec::new();
-    // roll two windows for loads and associated indices
     let indices: Vec<usize> = (0..v.len()).collect();
     for (wl, wi) in v.windows(window_width).zip(indices.windows(window_width)) {
-        // println!("new window: {:?} {:?}", wl, wi);
-        let (ql, qu, iqr) = match calculate_iqr(wl, min_window_data_accepted) {
+        let (ql, qu, iqr) = match calculate_iqr(wl, min_window_data) {
             Ok(res) => res,
             Err(e) => {
                 println!("{}", e);
-                continue
-            },
+                continue;
+            }
         };
         if iqr > max_iqr {
             anomalies_index.append(&mut wi.to_owned());
-            anomalies_load.append(&mut wl.to_owned());
-            println!("iqr {}, upper {} and lower {}\nfound anomaly in window:\n{:?}\n{:?}", ql, qu, iqr, wi, wl);
+            println!(
+                "iqr {}, upper {} and lower {}\nfound anomaly in window:\n{:?}\n{:?}",
+                ql, qu, iqr, wi, wl
+            );
         }
-
     }
-    return(anomalies_index, anomalies_load)
-
+    // Anomalous windows may give duplicates, keep only unique indices:
+    // first order so that multiple duplicates will be consecutive,
+    // then deduplicate more quickly and in-place.
+    anomalies_index.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    let (anomalies_index_dedup, _) = anomalies_index.partition_dedup_by(|a, b| a == b);
+    let anomalies_index_dedup = anomalies_index_dedup.to_vec();
+    let mut anomalies_load: Vec<f64> = Vec::new();
+    for i in anomalies_index_dedup.iter() {
+        anomalies_load.push(v[*i]);
+    }
+    return (anomalies_index_dedup, anomalies_load);
 }
 
 // Calculate the lower and upper quartiles
@@ -299,4 +307,14 @@ impl fmt::Display for LenErr {
             self.got_len, self.min_len, self.max_len
         )
     }
+}
+
+
+pub fn compare_f64(a: f64, b: f64) -> bool {
+    (a.is_nan() && b.is_nan()) || (a == b)
+}
+
+
+pub fn compare_vecf64(va: &[f64], vb: &[f64]) -> bool {
+    (va.len() == vb.len()) && va.iter().zip(vb).all(|(a, b)| compare_f64(*a, *b))
 }

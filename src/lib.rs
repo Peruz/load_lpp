@@ -1,11 +1,13 @@
 #![feature(test)]
+#![feature(slice_partition_dedup)]
 extern crate test;
+pub use crate::utils::*;
 use chrono::prelude::*;
+use chrono::Duration;
 use plotters::prelude::*;
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
-pub use crate::utils::*;
 pub mod load_log_dad141;
 pub mod load_plot;
 pub mod load_process;
@@ -22,7 +24,6 @@ pub const ERROR_FLT_NONE: f64 = 999998.;
 pub const ERROR_FLT_INVALID: f64 = 999997.;
 pub const ERROR_FLT_SKIPPED: f64 = 999996.;
 pub const ERROR_FLT_PARSE: f64 = 999995.;
-pub const MIN_DATA_IQR: usize = 6usize;
 
 /// The main struct for the load time series.
 #[derive(Debug, Clone)]
@@ -32,6 +33,7 @@ pub struct TimeLoad {
 }
 
 impl TimeLoad {
+
     /// Initiate a new TimeLoad instance
     /// using the given capacity for the time and load vectors
     pub fn new(capacity: usize) -> TimeLoad {
@@ -45,7 +47,7 @@ impl TimeLoad {
     /// setting load to NAN in case of load parsing errors,
     /// but panic for datatime errors.
     /// Do not check the continuity of the time series and presence of error flags,
-    /// these are checked separately afterwards
+    /// these are checked separately afterwards.
     pub fn from_csv<P>(fin: P) -> TimeLoad
     where
         P: AsRef<Path>,
@@ -89,6 +91,7 @@ impl TimeLoad {
         timeload
     }
 
+    // Assert that the time series is ordered.
     pub fn is_ordered(&self) {
         self.time.windows(2).for_each(|w| {
             assert!(
@@ -100,6 +103,7 @@ impl TimeLoad {
         });
     }
 
+    // Assert that the time series is ordered and continuous.
     pub fn is_ordered_and_continuous(&self) {
         self.time
             .windows(2)
@@ -118,12 +122,9 @@ impl TimeLoad {
             });
     }
 
-    /// Fill the datetime gaps with NAN to have continuous datetime.
-    /// Take a reference to the read TimeLoad
-    /// and return a new continuous TimeLoad.
-    /// In fact, build a continuous datetime Vec and then match it with the load Vec?
-    /// Use the minimum time interval in the data
-    /// to determine the desired time step for the output.
+    /// Fill the datetime gaps with NANs to have continuous datetime.
+    /// Take a reference to the read TimeLoad and return a new continuous TimeLoad.
+    /// Heuristically use the minimum time interval in the data to determine the desired time step for the output.
     pub fn fill_missing_with_nan(&self) -> TimeLoad {
         let min_delta = self
             .time
@@ -147,8 +148,7 @@ impl TimeLoad {
         timeload
     }
 
-    /// Replace all values measured at the bad datetimes  nan.
-    /// Need to be given as DateTime for correct and easier comparison.
+    /// Set to NAN the load values corresponsiding to the input bad datetimes.
     pub fn replace_bad_datetimes_with_nan(&mut self, bad_datetimes: Vec<DateTime<FixedOffset>>) {
         for bdt in bad_datetimes.into_iter() {
             match self.time.iter().position(|d| *d == bdt) {
@@ -158,7 +158,7 @@ impl TimeLoad {
         }
     }
 
-    /// Replace all values measured within the time interval with nan.
+    /// Replace all values measured within the time interval with NANs.
     /// Given in standard time, fixed offset for the chosen timezone.
     pub fn replace_bad_time_interval_with_nan(
         &mut self,
@@ -189,7 +189,7 @@ impl TimeLoad {
     }
 
     /// Consider all the values > max_value as invalid and replace them with NAN.
-    /// These high values are used for the errors.
+    /// These high values are reserved for the errors.
     pub fn replace_errors_with_nan(&mut self, max_value: f64) {
         self.load.iter_mut().for_each(|l| {
             if *l > max_value {
@@ -275,44 +275,45 @@ impl std::fmt::Display for TimeLoad {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    // run tests with:
-    // cargo test -- --nocapture
-    // to allow println! to stdout
 
-    // DateTime<FixedOffset> stores:
-    // self.datetime, which is the utc time
-    // self.offset, accessed with self.offset.fix(), which is the fixedoffset
-    // calling dt.naive_local() returns
-    // self.datetime + self.offset.fix(), which is the standard time
+    use super::*;
+    // use crate::utils::compare_vecf64;
+    // Run the tests with:
+    // cargo test -- --nocapture
+    // to allow println!(...) to stdout.
+
+
+    // test the correct correction for the daylight saving
     #[test]
     fn datetime_parsing_with_timezone() {
-        let mut timezone: i32 = -8;
-        timezone *= 60 * 60;
+
+        let timezone_hours: i32 = -8;
+        let timezone = timezone_hours * 60 * 60;
         let timezone_fixed_offset = FixedOffset::east(timezone);
-        let dtstr = "2021-11-07T01:30:00-07:00";
-        let dtiso = DateTime::parse_from_rfc3339(dtstr).unwrap();
-        let dtfix = dtiso.with_timezone(&timezone_fixed_offset);
+
+        // test DST
+        let dtstr_dst = "2021-11-07T01:30:00-07:00";
+        let dtiso_dst = DateTime::parse_from_rfc3339(dtstr_dst).unwrap();
+        let dtfix_dst = dtiso_dst.with_timezone(&timezone_fixed_offset);
         println!(
             "datetime str {} parsed as {}, fixed {}",
-            dtstr, dtiso, dtfix
+            dtstr_dst, dtiso_dst, dtfix_dst
         );
-        let dtstr = "2021-11-07T01:30:00-08:00";
-        let dtiso = DateTime::parse_from_rfc3339(dtstr).unwrap();
-        let dtfix = dtiso.with_timezone(&timezone_fixed_offset);
+
+        // test PST
+        let dtstr_pst = "2021-11-07T01:30:00-08:00";
+        let dtiso_pst = DateTime::parse_from_rfc3339(dtstr_pst).unwrap();
+        let dtfix_pst = dtiso_pst.with_timezone(&timezone_fixed_offset);
         println!(
             "datetime str {} parsed as {}, fixed {}",
-            dtstr, dtiso, dtfix
+            dtstr_pst, dtiso_pst, dtfix_pst
         );
+
+        // assert that DST goes 1 hour back
+        let timediff: Duration = Duration::hours(1);
+        assert!(dtfix_pst - timediff == dtfix_dst);
     }
 
-    fn f64eq_with_nan_eq(a: f64, b: f64) -> bool {
-        (a.is_nan() && b.is_nan()) || (a == b)
-    }
-
-    fn f64vec_compare(va: &[f64], vb: &[f64]) -> bool {
-        (va.len() == vb.len()) && va.iter().zip(vb).all(|(a, b)| f64eq_with_nan_eq(*a, *b))
-    }
 
     #[test]
     fn test_all_steps() {
@@ -348,6 +349,7 @@ mod tests {
         ctl.to_csv("./test/datetime_processed.csv");
         println!("saved to ./test/test_all_steps_processed.csv");
     }
+
 
     #[test]
     fn test_all_steps_parallel() {
@@ -399,11 +401,13 @@ mod tests {
             f64::NAN,
             f64::NAN,
         ];
-        assert! {f64vec_compare(&smooth, &correct_smooth)};
+        assert! {compare_vecf64(&smooth, &correct_smooth)};
         ctl.load = smooth;
         ctl.to_csv("./test/test_all_steps_parallel.csv");
         println!("saved to ./test/datetime_processed_parallel.csv");
     }
+
+
 
     #[test]
     fn test_logapp_datetime() {
@@ -416,6 +420,7 @@ mod tests {
         println!("local offet is {}", local_offset);
     }
 
+
     #[test]
     fn test_find_anomaly_homogeneous() {
         let a = [5.0f64; 15];
@@ -424,6 +429,7 @@ mod tests {
         assert!(anomalies_load == expected);
     }
 
+
     #[test]
     fn test_find_anomaly_linear() {
         let v: Vec<f64> = (1..15).map(|n| n as f64).collect();
@@ -431,6 +437,7 @@ mod tests {
         let (_, anomalies_load) = find_anomalies(&v, 7usize, 6usize, 5.0f64);
         assert!(anomalies_load == expected);
     }
+
 
     #[test]
     fn test_find_anomaly_nans() {
@@ -443,6 +450,7 @@ mod tests {
         let (_, _) = find_anomalies(&v, 7usize, 6usize, 5.0f64);
     }
 
+
     #[test]
     fn test_find_anomaly_anomalous() {
         let mut v: Vec<f64> = (1..15).map(|n| n as f64).collect();
@@ -452,8 +460,29 @@ mod tests {
             }
         });
         let (anomalies_index, anomalies_load) = find_anomalies(&v, 7usize, 6usize, 5.0f64);
-        println!("load anomalies are {:?}, with indices {:?}", anomalies_load, anomalies_index);
+        println!(
+            "load anomalies are {:?}, with indices {:?}",
+            anomalies_load, anomalies_index
+        );
     }
+
+
+    #[test]
+    fn test_deduplicate() {
+        let mut v_all = vec![1., 2., 2., 2., 3., 4., 4., 5., 6., 6.];
+        let v_unique = vec![1., 2., 3., 4., 5., 6.];
+        let v_duplicates = vec![2., 2., 4., 6.];
+        // deduplicate removes consecutive repeated elements,
+        // thus if the input is sorted dedup returns no duplicates
+        v_all.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let (dedup, duplicates) = v_all.partition_dedup_by(|a, b| a == b);
+        let mut duplicates = duplicates.to_owned();
+        duplicates.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        println!("test:\ndedup {:?} == {:?}?\nduplicates {:?} == {:?}?", dedup, v_unique, duplicates, v_duplicates);
+        assert!(v_unique == dedup);
+        assert!(v_duplicates == duplicates);
+    }
+
 }
 
 #[bench]
