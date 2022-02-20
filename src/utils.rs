@@ -193,38 +193,39 @@ pub fn mavg_parallel_fold(v: &[f64], w: &[f64]) -> Vec<f64> {
     vout
 }
 
-// A configurable and automatic detection of anomal events
-// which can be used for reporting or filtering.
-// The reported anomalies can be appended to the bad datetimes input
+// Anomalies can be periods that have to be removed
+// or the actual events of interest.
+// A configurable and automatic detection of anomalous events,
+// which can be reported or filtered.
+// For example, the reported anomalies can be appended to the bad datetimes input
 // and thus be removed in the successive processing iteration.
 //
-// use map to dereference the f64 and usize,
-// as they are cheap and implement copy.
-// This gives a Vec that owns its elements.
-// All the elements are finite and sorted,
-// ready for the IQR range calculation.
+// Run a rolling window of width `window_width` over the vector `v`.
+// Make sure `window_width` is larger than the minum number of data required by the user `min_window_data`,
+// and that this number is statistically sufficient for calculating the IQR, see `MIN_DATA_IQR`.
 //
-pub fn find_anomalis(
+// Return unique values of the indices and loads that fell in an anomalous window.
+pub fn find_anomalies(
     v: &[f64],
     window_width: usize,
     min_window_data: usize,
     max_iqr: f64,
 ) -> (Vec<usize>, Vec<f64>) {
-    let min_window_data_accepted = 6usize;
-    if window_width < min_window_data {
-        panic!("find_anomalies: impossible to proceed as window_width > min_window_data");
+    // initial length checks
+    pub const MIN_DATA_IQR: usize = 6usize;
+    if min_window_data > MIN_DATA_IQR {
+        panic!("find_anomalies: more than {} data are required for the IQR calculation", MIN_DATA_IQR);
     }
-    if min_window_data < min_window_data_accepted {
-        panic!(
-            "find_anomalies: more than {} data are required",
-            min_window_data_accepted
-        );
+    if min_window_data < window_width {
+        panic!("find_anomalies: impossible to proceed as window_width < min_window_data");
     }
-    let indices: Vec<usize> = (0..v.len()).collect();
+    // the vectors to store the anomalous values to be returned
     let mut anomalies_index: Vec<usize> = Vec::new();
     let mut anomalies_load: Vec<f64> = Vec::new();
+    // roll two windows for loads and associated indices
+    let indices: Vec<usize> = (0..v.len()).collect();
     for (wl, wi) in v.windows(window_width).zip(indices.windows(window_width)) {
-        println!("new window: {:?} {:?}", wl, wi);
+        // println!("new window: {:?} {:?}", wl, wi);
         let (ql, qu, iqr) = match calculate_iqr(wl, min_window_data_accepted) {
             Ok(res) => res,
             Err(e) => {
@@ -248,6 +249,10 @@ pub fn find_anomalis(
 // Note, no + 1 here because of the zero-starting indexing, i.e.,
 // h = (N - 1) * q + 1  => (N - 1) * q
 // This is analogous to the default method chosen by NumPy.
+//
+// Use map to dereference the f64 and usize,
+// as they are cheap and implement copy.
+// This gives a Vec that owns its elements.
 pub fn calculate_iqr(s: &[f64], min_len: usize) -> Result<(f64, f64, f64), LenErr> {
     let mut v: Vec<f64> = s.iter().filter(|n| n.is_finite()).map(|n| *n).collect();
     let v_len = v.len();

@@ -11,7 +11,6 @@ pub mod load_plot;
 pub mod load_process;
 pub mod utils;
 
-// constants
 pub const VERSION: Option<&'static str> = option_env!("CARGO_PKG_VERSION");
 pub const ERROR_STR_GENERAL: &str = "E+999999.";
 pub const ERROR_STR_NONE: &str = "E+999998.";
@@ -23,6 +22,7 @@ pub const ERROR_FLT_NONE: f64 = 999998.;
 pub const ERROR_FLT_INVALID: f64 = 999997.;
 pub const ERROR_FLT_SKIPPED: f64 = 999996.;
 pub const ERROR_FLT_PARSE: f64 = 999995.;
+pub const MIN_DATA_IQR: usize = 6usize;
 
 /// The main struct for the load time series.
 #[derive(Debug, Clone)]
@@ -420,7 +420,7 @@ mod tests {
     fn test_find_anomaly_homogeneous() {
         let a = [5.0f64; 15];
         let expected: Vec<f64> = Vec::new();
-        let (_, anomalies_load) = find_anomalis(&a, 7usize, 6usize, 5.0f64);
+        let (_, anomalies_load) = find_anomalies(&a, 7usize, 6usize, 5.0f64);
         assert!(anomalies_load == expected);
     }
 
@@ -428,7 +428,7 @@ mod tests {
     fn test_find_anomaly_linear() {
         let v: Vec<f64> = (1..15).map(|n| n as f64).collect();
         let expected: Vec<f64> = Vec::new();
-        let (_, anomalies_load) = find_anomalis(&v, 7usize, 6usize, 5.0f64);
+        let (_, anomalies_load) = find_anomalies(&v, 7usize, 6usize, 5.0f64);
         assert!(anomalies_load == expected);
     }
 
@@ -440,7 +440,7 @@ mod tests {
                 *e = f64::NAN
             }
         });
-        let (_, _) = find_anomalis(&v, 7usize, 6usize, 5.0f64);
+        let (_, _) = find_anomalies(&v, 7usize, 6usize, 5.0f64);
     }
 
     #[test]
@@ -451,7 +451,7 @@ mod tests {
                 *e = 20.
             }
         });
-        let (anomalies_index, anomalies_load) = find_anomalis(&v, 7usize, 6usize, 5.0f64);
+        let (anomalies_index, anomalies_load) = find_anomalies(&v, 7usize, 6usize, 5.0f64);
         println!("load anomalies are {:?}, with indices {:?}", anomalies_load, anomalies_index);
     }
 }
