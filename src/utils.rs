@@ -4,6 +4,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::{error::Error, fmt};
+use std::cmp::PartialOrd;
 
 /// If longer than one week, keep year, month and day, drop hours;
 /// if not, but longer than one day, add hours.
@@ -323,4 +324,66 @@ pub fn compare_f64_approx(a: f64, b: f64, max: f64) -> bool {
 
 pub fn compare_vecf64_approx(va: &[f64], vb: &[f64]) -> bool {
     (va.len() == vb.len()) && va.iter().zip(vb).all(|(a, b)| compare_f64_approx(*a, *b, 0.1f64))
+}
+
+pub fn discharge_by_index_vec(ve: Vec<f64>, vi: Vec<usize>) -> Vec<f64> {
+
+    let mut vout: Vec<f64> = Vec::new();
+
+    let mut ve_iter = ve.iter().enumerate();
+    let mut vi_iter = vi.iter();
+
+    while let Some(i) = vi_iter.next() {
+        println!("new i {}", i);
+        loop {
+            let (vei, vee) = ve_iter.next().unwrap();
+            if vei < *i {
+                vout.push(*vee);
+                println!("push");
+            } else if vei == *i {
+                println!("break");
+                break
+            } else {
+                panic!("something went wrong {} {}", vei, i);
+            }
+        }
+    }
+    while let Some((_, vee)) = ve_iter.next() {
+        vout.push(*vee);
+    }
+
+    return vout
+}
+
+
+pub fn discharge_by_index<T: Copy>(ve: &[T], vi: &[usize]) -> Vec<T> {
+
+    let mut vout: Vec<T> = Vec::with_capacity(ve.len());
+
+    let mut vi = vi.to_vec();
+    vi.sort();
+
+    assert!(vi[vi.len() - 1usize] < ve.len());
+
+    let mut vi_iter = vi.iter();
+    let mut ve_iter = ve.iter().enumerate();
+
+    while let Some(i) = vi_iter.next() {
+        loop {
+            let (vei, vee) = ve_iter.next().unwrap();
+            if vei < *i {
+                vout.push(*vee);
+            } else if vei == *i {
+                break
+            } else {
+                panic!("indices error: {} > {}", vei, i);
+            }
+        }
+    }
+
+    while let Some((_, vee)) = ve_iter.next() {
+        vout.push(*vee);
+    }
+
+    return vout
 }

@@ -3,7 +3,6 @@
 extern crate test;
 pub use crate::utils::*;
 use chrono::prelude::*;
-use chrono::Duration;
 use plotters::prelude::*;
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
@@ -313,7 +312,7 @@ mod tests {
         );
 
         // assert that DST goes 1 hour back
-        let timediff: Duration = Duration::hours(1);
+        let timediff = chrono::Duration::hours(1);
         assert!(dtfix_pst - timediff == dtfix_dst);
     }
 
@@ -444,6 +443,9 @@ mod tests {
         ctl.replace_outliers_with_nan(10000., 18000.);
         println!("{}", ctl);
 
+        // find anomalies and remove them
+        let (anomalies_indices, anomalies_load) = find_anomalies(&ctl.load, 12usize, 6usize, 5.0f64);
+
 
         // apply a weighted moving average to smooth the filtered time series
         let mavg_window = make_window(3., 1., 5usize);
@@ -506,6 +508,8 @@ mod tests {
         ctl.replace_outliers_with_nan(10000., 18000.);
         println!("{}", ctl);
 
+        // find anomalies
+
 
         // apply a weighted moving average to smooth the filtered time series
         let mavg_window = make_window(3., 1., 2usize);
@@ -548,6 +552,14 @@ mod tests {
         // save the filtered and smooth load series
         ctl.to_csv("./test/datetime_processed.csv");
 
+    }
+
+    #[test]
+    fn test_discharge_by_index() {
+        let vall: Vec<f64> = (1..20).map(|n| n as f64).collect();
+        let i: Vec<usize> = vec![2, 3, 7, 12, 13, 18];
+        let vout = discharge_by_index(&vall, &i);
+        println!("{:?}", vout);
     }
 
 }
