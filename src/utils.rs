@@ -326,48 +326,19 @@ pub fn compare_vecf64_approx(va: &[f64], vb: &[f64]) -> bool {
     (va.len() == vb.len()) && va.iter().zip(vb).all(|(a, b)| compare_f64_approx(*a, *b, 0.1f64))
 }
 
-pub fn discharge_by_index_vec(ve: Vec<f64>, vi: Vec<usize>) -> Vec<f64> {
-
-    let mut vout: Vec<f64> = Vec::new();
-
-    let mut ve_iter = ve.iter().enumerate();
-    let mut vi_iter = vi.iter();
-
-    while let Some(i) = vi_iter.next() {
-        println!("new i {}", i);
-        loop {
-            let (vei, vee) = ve_iter.next().unwrap();
-            if vei < *i {
-                vout.push(*vee);
-                println!("push");
-            } else if vei == *i {
-                println!("break");
-                break
-            } else {
-                panic!("something went wrong {} {}", vei, i);
-            }
-        }
-    }
-    while let Some((_, vee)) = ve_iter.next() {
-        vout.push(*vee);
-    }
-
-    return vout
-}
-
-
+/// Return a new vector without the elements associated with the given indices.
+/// The indices are expected to be sorted or partially sorted:
+/// sort them completely and then take advantage of that.
+/// This avoids random indexing-access the vector,
+/// which can reduce cache misses and the number of comparisons.
+/// This is used for removing bad datetimes and anomalies.
 pub fn discharge_by_index<T: Copy>(ve: &[T], vi: &[usize]) -> Vec<T> {
-
     let mut vout: Vec<T> = Vec::with_capacity(ve.len());
-
     let mut vi = vi.to_vec();
     vi.sort();
-
     assert!(vi[vi.len() - 1usize] < ve.len());
-
     let mut vi_iter = vi.iter();
     let mut ve_iter = ve.iter().enumerate();
-
     while let Some(i) = vi_iter.next() {
         loop {
             let (vei, vee) = ve_iter.next().unwrap();
@@ -380,10 +351,35 @@ pub fn discharge_by_index<T: Copy>(ve: &[T], vi: &[usize]) -> Vec<T> {
             }
         }
     }
-
     while let Some((_, vee)) = ve_iter.next() {
         vout.push(*vee);
     }
-
     return vout
+}
+
+/// Set to NAN the elements of the given vector at the given indices.
+/// The indices are expected to be sorted or partially sorted:
+/// sort them completely and then take advantage of that.
+/// This avoids random indexing-access the vector,
+/// which can reduce cache misses and the number of comparisons.
+/// This is used for removing bad datetimes and anomalies.
+pub fn setnan_by_index(ve: &mut [f64], vi: &[usize]) {
+    let mut vi = vi.to_vec();
+    vi.sort();
+    assert!(vi[vi.len() - 1usize] < ve.len());
+    let mut vi_iter = vi.iter();
+    let mut ve_iter = ve.iter_mut().enumerate();
+    while let Some(i) = vi_iter.next() {
+        loop {
+            let (vei, vee) = ve_iter.next().unwrap();
+            if vei < *i {
+                continue
+            } else if vei == *i {
+                *vee = f64::NAN;
+                break
+            } else {
+                panic!("indices error: {} > {}", vei, i);
+            }
+        }
+    }
 }

@@ -32,7 +32,6 @@ pub struct TimeLoad {
 }
 
 impl TimeLoad {
-
     /// Initiate a new TimeLoad instance
     /// using the given capacity for the time and load vectors
     pub fn new(capacity: usize) -> TimeLoad {
@@ -272,8 +271,6 @@ impl std::fmt::Display for TimeLoad {
     }
 }
 
-
-
 // use crate::utils::compare_vecf64;
 // Run the tests with:
 // cargo test -- --nocapture
@@ -283,12 +280,10 @@ mod tests {
 
     use super::*;
 
-
     #[test]
     // Test the correct correction for the daylight saving,
     // needed for long term monitorings
     fn datetime_parsing_with_timezone() {
-
         let timezone_hours: i32 = -8;
         let timezone = timezone_hours * 60 * 60;
         let timezone_fixed_offset = FixedOffset::east(timezone);
@@ -316,7 +311,6 @@ mod tests {
         assert!(dtfix_pst - timediff == dtfix_dst);
     }
 
-
     #[test]
     // Get the reading datetime with the correct offset
     fn test_get_current_datetime_offset() {
@@ -329,7 +323,6 @@ mod tests {
         println!("local offet is {}", local_offset);
     }
 
-
     #[test]
     // Assert that a homogenous load time series gives no anomalies
     fn test_find_anomaly_homogeneous() {
@@ -339,7 +332,6 @@ mod tests {
         assert!(anomalies_load == expected);
     }
 
-
     #[test]
     // Assert that a linear load time series with small increment gives no anomalies
     fn test_find_anomaly_linear() {
@@ -348,7 +340,6 @@ mod tests {
         let (_, anomalies_load) = find_anomalies(&v, 7usize, 6usize, 5.0f64);
         assert!(anomalies_load == expected);
     }
-
 
     #[test]
     // Assert that a NANs are correctly handled while finding anomalies
@@ -364,7 +355,6 @@ mod tests {
         assert!(anomalies_load == expected);
     }
 
-
     #[test]
     // Assert that the anomalies are correctly identified by adding a big discontinuity
     fn test_find_anomaly_discontinuity() {
@@ -378,7 +368,6 @@ mod tests {
         let expected: Vec<f64> = vec![20.0, 20.0, 20.0, 20.0, 9.0, 10.0, 11.0, 12.0, 13.0];
         assert!(anomalies_load == expected);
     }
-
 
     #[test]
     // Deduplicate removes consecutive repeated elements,
@@ -399,11 +388,32 @@ mod tests {
         assert!(v_duplicates == duplicates);
     }
 
+    #[test]
+    fn test_discharge_by_index() {
+        let vall: Vec<f64> = (1..20).map(|n| n as f64).collect();
+        let indices: Vec<usize> = vec![2, 3, 7, 12, 13, 18];
+        let mut expected: Vec<f64> = (1..20).map(|n| n as f64).collect();
+        for i in indices.iter().rev() {
+            expected.remove(*i);
+        }
+        let vout = discharge_by_index(&vall, &indices);
+        println!("vout\n{:?}\nexpected\n{:?}", vout, expected);
+        assert!(compare_vecf64_approx(&vout, &expected));
+    }
+
+    #[test]
+    fn test_setnan_by_index() {
+        let mut vall: Vec<f64> = (1..20).map(|n| n as f64).collect();
+        let indices: Vec<usize> = vec![2, 3, 7, 12, 13, 18];
+        let mut expected: Vec<f64> = (1..20).map(|n| n as f64).collect();
+        indices.iter().for_each(|i| expected[*i] = f64::NAN);
+        setnan_by_index(&mut vall, &indices);
+        assert!(compare_vecf64_approx(&vall, &expected));
+    }
 
     #[test]
     // full processing test, including all the optional steps
     fn test_all_steps() {
-
         // define time zone for the test
         let mut timezone: i32 = -8;
         timezone *= 60 * 60;
@@ -411,7 +421,9 @@ mod tests {
 
         // read the time series and adjust to the deifned time zone
         let mut tl = TimeLoad::from_csv(String::from("./test/datetime.csv"));
-        tl.time.iter_mut().for_each(|t| *t = t.with_timezone(&timezone_fixed_offset));
+        tl.time
+            .iter_mut()
+            .for_each(|t| *t = t.with_timezone(&timezone_fixed_offset));
         println!("{}", tl);
 
         // make sure the time series is ordered before processing
@@ -428,7 +440,7 @@ mod tests {
         println!("{}", ctl);
 
         // define a daily interval over which values should be ignored (maintenance, etc.),
-        // then these intervals to NAN 
+        // then these intervals to NAN
         let time_init = NaiveTime::parse_from_str("01:02", "%H:%M").unwrap();
         let time_stop = NaiveTime::parse_from_str("01:05", "%H:%M").unwrap();
         ctl.replace_bad_time_interval_with_nan(time_init, time_stop);
@@ -438,14 +450,12 @@ mod tests {
         ctl.replace_errors_with_nan(99995.);
         println!("{}", ctl);
 
-
         // keep only load values within a specific range, set the outliers to NAN
         ctl.replace_outliers_with_nan(10000., 18000.);
         println!("{}", ctl);
 
-        // find anomalies and remove them
-        let (anomalies_indices, anomalies_load) = find_anomalies(&ctl.load, 12usize, 6usize, 5.0f64);
-
+        // // find anomalies and remove them
+        // let (anomalies_indices, anomalies_load) = find_anomalies(&ctl.load, 12usize, 6usize, 5.0f64);
 
         // apply a weighted moving average to smooth the filtered time series
         let mavg_window = make_window(3., 1., 5usize);
@@ -461,14 +471,11 @@ mod tests {
 
         // save the filtered and smooth load series
         ctl.to_csv("./test/datetime_processed.csv");
-
     }
-
 
     #[test]
     // full processing test, including all the optional steps
     fn test_all_steps_parallel() {
-
         // define time zone for the test
         let mut timezone: i32 = -8;
         timezone *= 60 * 60;
@@ -476,7 +483,9 @@ mod tests {
 
         // read the time series and adjust to the deifned time zone
         let mut tl = TimeLoad::from_csv(String::from("./test/datetime_for_parallel.csv"));
-        tl.time.iter_mut().for_each(|t| *t = t.with_timezone(&timezone_fixed_offset));
+        tl.time
+            .iter_mut()
+            .for_each(|t| *t = t.with_timezone(&timezone_fixed_offset));
         println!("{}", tl);
 
         // make sure the time series is ordered before processing
@@ -493,7 +502,7 @@ mod tests {
         println!("{}", ctl);
 
         // define a daily interval over which values should be ignored (maintenance, etc.),
-        // then these intervals to NAN 
+        // then these intervals to NAN
         let time_init = NaiveTime::parse_from_str("01:02", "%H:%M").unwrap();
         let time_stop = NaiveTime::parse_from_str("01:05", "%H:%M").unwrap();
         ctl.replace_bad_time_interval_with_nan(time_init, time_stop);
@@ -503,13 +512,11 @@ mod tests {
         ctl.replace_errors_with_nan(99995.);
         println!("{}", ctl);
 
-
         // keep only load values within a specific range, set the outliers to NAN
         ctl.replace_outliers_with_nan(10000., 18000.);
         println!("{}", ctl);
 
         // find anomalies
-
 
         // apply a weighted moving average to smooth the filtered time series
         let mavg_window = make_window(3., 1., 2usize);
@@ -551,19 +558,9 @@ mod tests {
 
         // save the filtered and smooth load series
         ctl.to_csv("./test/datetime_processed.csv");
-
-    }
-
-    #[test]
-    fn test_discharge_by_index() {
-        let vall: Vec<f64> = (1..20).map(|n| n as f64).collect();
-        let i: Vec<usize> = vec![2, 3, 7, 12, 13, 18];
-        let vout = discharge_by_index(&vall, &i);
-        println!("{:?}", vout);
     }
 
 }
-
 
 #[bench]
 fn bench_mavg_parallel_simd(b: &mut test::Bencher) {
@@ -574,7 +571,6 @@ fn bench_mavg_parallel_simd(b: &mut test::Bencher) {
     });
 }
 
-
 #[bench]
 fn bench_mavg_parallel_fold(b: &mut test::Bencher) {
     let v = vec![1000.; 1E+5 as usize];
@@ -583,7 +579,6 @@ fn bench_mavg_parallel_fold(b: &mut test::Bencher) {
         mavg_parallel_fold(&v, &w);
     });
 }
-
 
 #[bench]
 fn bench_mavg(b: &mut test::Bencher) {
