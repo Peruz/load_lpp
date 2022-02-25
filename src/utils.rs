@@ -114,10 +114,10 @@ pub fn mavg(v: &[f64], w: &[f64], max_missing_v: usize, max_missing_wpct: f64) -
             }
             if (missing_v > max_missing_v) || (missing_w > max_missing_w) {
                 sum_ve_we = f64::NAN;
-                println!(
-                    "setting to NAN; {} missing data with limit {}, {} missing window weight with limit {}",
-                    missing_v, max_missing_v, missing_w, max_missing_w,
-                );
+                // println!(
+                //     "setting to NAN; {} missing data with limit {}, {} missing window weight with limit {}",
+                //     missing_v, max_missing_v, missing_w, max_missing_w,
+                // );
                 break;
             }
         }
@@ -225,19 +225,19 @@ pub fn find_anomalies(
     let mut anomalies_index: Vec<usize> = Vec::new();
     let indices: Vec<usize> = (0..v.len()).collect();
     for (wl, wi) in v.windows(window_width).zip(indices.windows(window_width)) {
-        let (ql, qu, iqr) = match calculate_iqr(wl, min_window_data) {
+        let (_ql, _qu, iqr) = match calculate_iqr(wl, min_window_data) {
             Ok(res) => res,
-            Err(e) => {
-                println!("{}", e);
+            Err(_e) => {
+                // println!("{}", _e);
                 continue;
             }
         };
         if iqr > max_iqr {
             anomalies_index.append(&mut wi.to_owned());
-            println!(
-                "iqr {}, upper {} and lower {}\nfound anomaly in window:\n{:?}\n{:?}",
-                ql, qu, iqr, wi, wl
-            );
+            // println!(
+            //     "iqr {}, upper {} and lower {}\nfound anomaly in window:\n{:?}\n{:?}",
+            //     _ql, _qu, iqr, wi, wl
+            // );
         }
     }
     // Anomalous windows may give duplicates, keep only unique indices:
@@ -364,6 +364,9 @@ pub fn discharge_by_index<T: Copy>(ve: &[T], vi: &[usize]) -> Vec<T> {
 /// which can reduce cache misses and the number of comparisons.
 /// This is used for removing bad datetimes and anomalies.
 pub fn setnan_by_index(ve: &mut [f64], vi: &[usize]) {
+    if vi.len() == 0 {
+        return
+    }
     let mut vi = vi.to_vec();
     vi.sort();
     assert!(vi[vi.len() - 1usize] < ve.len());
