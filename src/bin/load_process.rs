@@ -4,6 +4,8 @@ use load_lpp::make_window;
 use load_lpp::mavg;
 use load_lpp::read_bad_datetimes;
 use load_lpp::TimeLoad;
+use load_lpp::find_anomalies;
+use load_lpp::setnan_by_index;
 
 fn main() {
     let (
@@ -14,6 +16,9 @@ fn main() {
         mavg_max_missing_pct_weight,
         mavg_central_weight,
         mavg_side_weight,
+        anomaly_detect,
+        anomaly_width,
+        anomaly_iqr,
         min_load,
         max_load,
         bad_datetimes,
@@ -27,21 +32,21 @@ fn main() {
     );
 
     println!("> read data from {}", csvin.to_str().unwrap());
-    let mut tw = TimeLoad::from_csv(csvin);
+    let mut tl = TimeLoad::from_csv(csvin);
 
     let timezone_seconds = timezone * 60 * 60;
     let timezone_fixed_offset = FixedOffset::east(timezone_seconds);
-    tw.time
+    tl.time
         .iter_mut()
         .for_each(|t| *t = t.with_timezone(&timezone_fixed_offset));
 
-    tw.is_ordered();
+    tl.is_ordered();
 
     println!("> fill missing values with nan");
-    let mut ftw = tw.fill_missing_with_nan();
+    let mut ftl = tl.fill_missing_with_nan();
 
     println!("> check that the time series is continuous and ordered");
-    ftw.is_ordered_and_continuous();
+    ftl.is_ordered_and_continuous();
 
     if bad_datetimes.is_some() {
         let bdt = bad_datetimes.unwrap();
@@ -51,7 +56,7 @@ fn main() {
             vec_bad_dateimes.len(),
             bdt.to_str().unwrap()
         );
-        ftw.replace_bad_datetimes_with_nan(vec_bad_dateimes);
+        ftl.replace_bad_datetimes_with_nan(vec_bad_dateimes);
     }
 
     if bad_time_interval.is_some() {
@@ -60,7 +65,7 @@ fn main() {
             "> consider daily times between {} and {} as invalid, set them to nan",
             t.0, t.1
         );
-        ftw.replace_bad_time_interval_with_nan(t.0, t.1);
+        ftl.replace_bad_time_interval_with_nan(t.0, t.1);
     }
 
     let largest_valid = 999994.;
@@ -68,26 +73,43 @@ fn main() {
         "> consider all values larger than {} as error codes, set them to nan",
         largest_valid
     );
-    ftw.replace_errors_with_nan(largest_valid);
+    ftl.replace_errors_with_nan(largest_valid);
 
     println!(
         "> consider outliers values below {} or above {}, set them to nan",
         min_load, max_load
     );
-    ftw.replace_outliers_with_nan(min_load, max_load);
+    ftl.replace_outliers_with_nan(min_load, max_load);
+
+
+    // Optional anomaly detection, save them to file so that they can be added to the bad datetimes.
+    // Meanwhile, set values to nan.
+    // Require at least half of the window width to be valid load values, otherwise skip it.
+    println!("> anomomaly detection is {}", anomaly_detect);
+    if anomaly_detect {
+        let min_data_anomaly = anomaly_width / 2usize;
+        let (anomalies_indices, _) = find_anomalies(&ftl.load, anomaly_width, min_data_anomaly, anomaly_iqr);
+        let mut atl = TimeLoad::new(anomalies_indices.len());
+        for i in anomalies_indices.iter() {
+            atl.time.push(ftl.time.get(*i).unwrap().clone());
+            atl.load.push(ftl.load.get(*i).unwrap().clone());
+        }
+        atl.to_csv("./timeload_anomalies.csv");
+        setnan_by_index(&mut ftl.load[..], &anomalies_indices);
+    }
 
     println!("> apply moving average to smooth and fill nan");
     if side != 0 {
         let mavg_window = make_window(mavg_central_weight, mavg_side_weight, side);
         let smooth = mavg(
-            &ftw.load[..],
+            &ftl.load[..],
             &mavg_window,
             mavg_max_missing_values,
             mavg_max_missing_pct_weight,
         );
-        ftw.load = smooth;
+        ftl.load = smooth;
     }
 
     println!("> save processed data to {}", csvout.to_str().unwrap());
-    ftw.to_csv(csvout);
+    ftl.to_csv(csvout);
 }
