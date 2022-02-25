@@ -420,7 +420,7 @@ mod tests {
         let timezone_fixed_offset = FixedOffset::east(timezone);
 
         // read the time series and adjust to the deifned time zone
-        let mut tl = TimeLoad::from_csv(String::from("./test/datetime.csv"));
+        let mut tl = TimeLoad::from_csv(String::from("./test/timeload_raw.csv"));
         tl.time
             .iter_mut()
             .for_each(|t| *t = t.with_timezone(&timezone_fixed_offset));
@@ -454,8 +454,17 @@ mod tests {
         ctl.replace_outliers_with_nan(10000., 18000.);
         println!("{}", ctl);
 
-        // // find anomalies and remove them
-        // let (anomalies_indices, anomalies_load) = find_anomalies(&ctl.load, 12usize, 6usize, 5.0f64);
+        // find anomalies and set to NAN
+        let (anomalies_indices, _) = find_anomalies(&ctl.load, 16usize, 8usize, 40.0f64);
+        println!("indices of the anomalies:\n{:?}", anomalies_indices);
+        let mut atl = TimeLoad::new(anomalies_indices.len());
+        for i in anomalies_indices.iter() {
+            atl.time.push(ctl.time.get(*i).unwrap().clone());
+            atl.load.push(ctl.load.get(*i).unwrap().clone());
+        }
+        atl.to_csv("./test/timeload_anomalies.csv");
+
+        setnan_by_index(&mut ctl.load[..], &anomalies_indices);
 
         // apply a weighted moving average to smooth the filtered time series
         let mavg_window = make_window(3., 1., 5usize);
@@ -467,10 +476,10 @@ mod tests {
         ctl.load = smooth;
 
         // plot the filtered and smooth load series
-        ctl.plot_datetime("./test/test_all_steps.svg").unwrap();
+        ctl.plot_datetime("./test/timeload_processed.svg").unwrap();
 
         // save the filtered and smooth load series
-        ctl.to_csv("./test/datetime_processed.csv");
+        ctl.to_csv("./test/timeload_processed.csv");
     }
 
     #[test]
@@ -482,7 +491,7 @@ mod tests {
         let timezone_fixed_offset = FixedOffset::east(timezone);
 
         // read the time series and adjust to the deifned time zone
-        let mut tl = TimeLoad::from_csv(String::from("./test/datetime_for_parallel.csv"));
+        let mut tl = TimeLoad::from_csv(String::from("./test/parallel_timeload_raw.csv"));
         tl.time
             .iter_mut()
             .for_each(|t| *t = t.with_timezone(&timezone_fixed_offset));
@@ -497,7 +506,7 @@ mod tests {
         println!("{}", ctl);
 
         // read bad datetimes and replace them with NANs
-        let bad = read_bad_datetimes("./test/bad_datetimes.csv");
+        let bad = read_bad_datetimes("./test/parallel_bad_datetimes.csv");
         ctl.replace_bad_datetimes_with_nan(bad);
         println!("{}", ctl);
 
@@ -516,7 +525,18 @@ mod tests {
         ctl.replace_outliers_with_nan(10000., 18000.);
         println!("{}", ctl);
 
-        // find anomalies
+        // find anomalies and set to NAN
+        let (anomalies_indices, _) = find_anomalies(&ctl.load, 16usize, 8usize, 40.0f64);
+        println!("indices of the anomalies:\n{:?}", anomalies_indices);
+        let mut atl = TimeLoad::new(anomalies_indices.len());
+        for i in anomalies_indices.iter() {
+            atl.time.push(ctl.time.get(*i).unwrap().clone());
+            atl.load.push(ctl.load.get(*i).unwrap().clone());
+        }
+        atl.to_csv("./test/parallel_timeload_anomalies.csv");
+
+        setnan_by_index(&mut ctl.load[..], &anomalies_indices);
+
 
         // apply a weighted moving average to smooth the filtered time series
         let mavg_window = make_window(3., 1., 2usize);
@@ -554,10 +574,10 @@ mod tests {
         ctl.load = smooth;
 
         // plot the filtered and smooth load series
-        ctl.plot_datetime("./test/test_all_steps.svg").unwrap();
+        ctl.plot_datetime("./test/parallel_timeload_processed.svg").unwrap();
 
         // save the filtered and smooth load series
-        ctl.to_csv("./test/datetime_processed.csv");
+        ctl.to_csv("./test/parallel_timeload_processed.csv");
     }
 
 }

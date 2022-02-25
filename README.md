@@ -16,7 +16,8 @@ This CLI app processes the load time series with the following steps:
 4. Optionally, replace logging errors with NAN.
 5. Optionally, replace given datetimes from an input file with NAN (e.g., values disturbed by maintenance).
 6. Optionally, replace a given daily interval with NAN (e.g., daily temperature effects or maintenance period).
-7. Optionally, use a weighted moving average to smooth the time series (e.g., wind and temperature) and fill the NAN values.
+7. Optionally, automatically detect and report anomalous periods that would be hardly smoothed and corrected by the following moving average.
+8. Optionally, use a weighted moving average to smooth the time series (e.g., wind and temperature) and fill the NAN values.
 It uses a moving average with linear weights between a user-defined central weight (typically the max weight) and a side weight (typically the minimum weight).
 The width of the window can be adjusted by specifying the number of data points on each side, this parameterization guaranties the window symmetry.
 Constraints can be set to define when the missing information is too large to fill the NAN values (maximum number of missing load values or their cumulative associated weight).

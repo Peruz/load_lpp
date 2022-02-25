@@ -11,6 +11,6 @@ description = "CLI apps for logging, processing, and plotting load time series"
 
 [dependencies]
 chrono = "0.4.19"
-clap = "2.34.0"
+clap = "3.1.*"
 plotters = "0.3.1"
 rayon = "1.5.*"
