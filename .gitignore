@@ -3,6 +3,6 @@
 Cargo.lock
 **/*.svg
 !smartsoil/*.svg
-**/*.png
+!irrigation_processed_lpp.png
 **/*.jpg
 **/*.pdf

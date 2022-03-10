@@ -30,7 +30,7 @@ The output format of the figure is svg.
 
 Note, throughout the crate, load is used for the load cells data, while weight is used for the moving average.
 
-<p align="center"><img src="irrigation_processed.png"></p>
+<p align="center"><img src="irrigation_processed_lpp.png"></p>
 
 Documentation: [rust_crate](https://crates.io/crates/load_lpp)
 
