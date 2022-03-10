@@ -1,5 +1,5 @@
 ---
-title: 'Flintec_LPP: a Rust pipeline to log, process, and visualize load time series'
+title: 'Load_LPP: a Rust pipeline to Log, Process, and Plot load time series'
 tags:
   - Rust
   - Instrumentation
@@ -51,6 +51,9 @@ The logging app is detached, so that alternative loggers could be added.
 I wrote the pipeline, other co-authors contributed by highliting the needs, validation, editing, and funding.
 
 Add a figure with the processing or the load cells?
+Plot loads anomaly and add them as vertical bars.
+
+The three steps are split so that one could only use the processing on a file originated from different applications (e.g., using Python or a proprietery application).
 
 ### Anomalies
 Events: like a single outlier, a car, etc.; based on the difference between successive loads.
@@ -62,6 +65,42 @@ Add legend, it makes it more complete.
 
 
 # Summary
+Load_LPP is a Rust pipeline for measuring, processing, and visualize data from load cells.
+Weighing system of load cells are everywhere.
+Regarding science needs, both laboratory-based and outdoor research rely on load cells for reference values and time series used to contrain reaction and fluxes.
+Industry, healthcare, and logistic sectors also strongly rely on the weighing system [@cite:year].
+The importance of reliable, automated, and performant weighing system is confirmed by the increasing availability of smart system and research efforts on processing algorithms.
+However, these research advances do not find a convenient way of adoption, but remain mostly bound to proprietery hardware-software boundles.
+Commonly the need includes the automatic recording and processing of the load.
+In this sense, common commercial applications have some limitations:
+1. Often require a specific logger or a laptop.
+2. Provide only minimum garancies over long term periods.
+3. Procide limited processing and automation functionalities.
+4. Requeire significant preprocessing and post-processing steps because of the device-specific formats and functionalities.
+5. Are not, or hardly, extendible.
+6. Are not suited for large data sets (long term stability with minimal instrumentation such as a raspberry pi and automated and optimized processing functionalities).
+
+In general terms, these limitations are also found and address in similar fields.
+Accelerometers 
+other field (accelerometers, ...).
+At the best of our knowledge, we do not know of and equvalent for load cells.
+The only exception being hx711 (url, limitation: language and documentation, no processing).
+
+
+The need for and open, extendible, and ... framework that goes beyond the limitations 
+
+
+
+This is For this reason, commercial scales increasily come with 
+Virtua
+
+
+
+
+is a very common need in many scientific fields.
+In fact, the use of load cells has been pervasive in virtually every scientific 
+
+
 
 The forces on stars, galaxies, and dark matter under external gravitational
 fields lead to the dynamical evolution of structures in the universe. The orbits

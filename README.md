@@ -1,15 +1,16 @@
 # load_lpp (log - process - plot) 🦀
 This crate compiles the following three binaries for logging, preprocessing, and plotting load time series.
+The application is written in Rust and targets low-level optimization and long-term stability.
 
 ## 1 load_log_dad141
-CLI app to log load cells via the common DAD 141.1 digital amplifier with TCP-UTF8.
-The app allows automatic logging at rounded intervals of minutes or hours that are divisors of 1 day.
+CLI application to log load cells via the common DAD 141.1 digital amplifier with TCP-UTF8.
+The application allows automatic logging at rounded intervals of minutes or hours that are divisors of 1 day.
 Valid minutes intervals are 1, 2, 3, 5, 10, 15, 20, 30, and 60 minute(s).
 Valid hours intervals are 1, 2, 3, 6, 12, and 24 hour(s).
 The standard format RFC 3339 - ISO 8601 is used for the datetime to be more general and robust to time zones and daylight saving.
 
 ## 2 load_process
-This CLI app processes the load time series with the following steps:
+This CLI application processes the load time series with the following steps:
 1. Read and parse the logged load time series.
 2. Convert all datetime to a chosen time zone, i.e., removing daylight saving if needed or changing the time zone is desired.
 3. Make the time series continuous using the minimum time interval found in the data.
@@ -18,14 +19,13 @@ This CLI app processes the load time series with the following steps:
 6. Optionally, replace a given daily interval with NAN (e.g., daily temperature effects or maintenance period).
 7. Optionally, automatically detect and report anomalous periods that would be hardly smoothed and corrected by the following moving average.
 8. Optionally, use a weighted moving average to smooth the time series (e.g., wind and temperature) and fill the NAN values.
-It uses a moving average with linear weights between a user-defined central weight (typically the max weight) and a side weight (typically the minimum weight).
-The width of the window can be adjusted by specifying the number of data points on each side, this parameterization guaranties the window symmetry.
+It uses a moving average with linear weights between a user-defined central weight (typically the max weight) and a side weight (typically the minimum weight). The width of the window can be adjusted by specifying the number of data points on each side, this parameterization guaranties the window symmetry.
 Constraints can be set to define when the missing information is too large to fill the NAN values (maximum number of missing load values or their cumulative associated weight).
-8. The CLI app saves a new csv file compatible with load_plot.
+8. The CLI application saves a new csv file compatible with load_plot.
 
 ## 3 load_plot
-CLI app to plot the load time series saved by dad141_log or load_process.
-The app automatically adjust the datetime format.
+CLI application to plot the load time series saved by dad141_log or load_process.
+The application automatically adjust the datetime format.
 The output format of the figure is svg.
 
 Note, throughout the crate, load is used for the load cells data, while weight is used for the moving average.
@@ -34,7 +34,7 @@ Note, throughout the crate, load is used for the load cells data, while weight i
 
 Documentation: [rust_crate](https://crates.io/crates/load_lpp)
 
-The CLI apps are written in the [Rust](https://www.rust-lang.org) programming language.
+The CLI applications are written in the [Rust](https://www.rust-lang.org) programming language.
 
 # Addition Notes
 
@@ -82,7 +82,7 @@ ExcitationVoltage should be 5 V
 in general, 204 kg = 1 mV
 
 ### Format
-The app expects the 10-byte DAD format, with flexibility on the position of the decimal separator.
+The application expects the 10-byte DAD format, with flexibility on the position of the decimal separator.
 The first two characters are the description of the value and are excluded from the parsing of the numerical load value.
 However, the raw string is also written into the csv file to avoid losing information on the type of reading and recover the values in case of parsing errors.
 Possible whitespace-property characters (Unicode standard) will be correctly trimmed and ignored.
