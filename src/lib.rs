@@ -7,6 +7,9 @@ use plotters::prelude::*;
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
+use serde_json::Result;
+use serde::{Deserialize, Serialize};
+
 pub mod load_log_dad141;
 pub mod load_plot;
 pub mod load_process;
@@ -25,7 +28,7 @@ pub const ERROR_FLT_SKIPPED: f64 = 999996.;
 pub const ERROR_FLT_PARSE: f64 = 999995.;
 
 /// The main struct for the load time series.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TimeLoad {
     pub time: Vec<DateTime<FixedOffset>>,
     pub load: Vec<f64>,
