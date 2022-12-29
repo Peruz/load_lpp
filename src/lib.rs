@@ -7,8 +7,6 @@ use plotters::prelude::*;
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
-use serde_json::Result;
-use serde::{Deserialize, Serialize};
 
 pub mod load_log_dad141;
 pub mod load_plot;
@@ -28,7 +26,8 @@ pub const ERROR_FLT_SKIPPED: f64 = 999996.;
 pub const ERROR_FLT_PARSE: f64 = 999995.;
 
 /// The main struct for the load time series.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct TimeLoad {
     pub time: Vec<DateTime<FixedOffset>>,
     pub load: Vec<f64>,
@@ -540,7 +539,6 @@ mod tests {
 
         setnan_by_index(&mut ctl.load[..], &anomalies_indices);
 
-
         // apply a weighted moving average to smooth the filtered time series
         let mavg_window = make_window(3., 1., 2usize);
         let smooth = mavg_parallel_fold(&ctl.load[..], &mavg_window);
@@ -577,12 +575,12 @@ mod tests {
         ctl.load = smooth;
 
         // plot the filtered and smooth load series
-        ctl.plot_datetime("./test/parallel_timeload_processed.svg").unwrap();
+        ctl.plot_datetime("./test/parallel_timeload_processed.svg")
+            .unwrap();
 
         // save the filtered and smooth load series
         ctl.to_csv("./test/parallel_timeload_processed.csv");
     }
-
 }
 
 #[bench]

@@ -16,6 +16,15 @@ fn main() {
     // get CLI arguments
     let (csv_name, ip, port, mut tcmd_str, minutes, delay, verbose) = parse_cli_log();
 
+    if verbose {
+        println!("csv_name {}", csv_name);
+        println!("ip {}", ip);
+        println!("port {}", port);
+        println!("tcmd_str {}", tcmd_str);
+        println!("minutes {}", minutes);
+        println!("delay {}", delay);
+    }
+
     // Init connection with a closure, which can later be used to refresh the connection if needed.
     // The closures captures the variables in the environment where they are defined,
     // in this case, it is defined here and it captures: socket and timeout.

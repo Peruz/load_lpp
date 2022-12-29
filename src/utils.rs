@@ -1,10 +1,10 @@
 use chrono::prelude::*;
 use rayon::prelude::*;
+use std::cmp::PartialOrd;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::{error::Error, fmt};
-use std::cmp::PartialOrd;
 
 /// If longer than one week, keep year, month and day, drop hours;
 /// if not, but longer than one day, add hours.
@@ -323,7 +323,11 @@ pub fn compare_f64_approx(a: f64, b: f64, max: f64) -> bool {
 }
 
 pub fn compare_vecf64_approx(va: &[f64], vb: &[f64]) -> bool {
-    (va.len() == vb.len()) && va.iter().zip(vb).all(|(a, b)| compare_f64_approx(*a, *b, 0.1f64))
+    (va.len() == vb.len())
+        && va
+            .iter()
+            .zip(vb)
+            .all(|(a, b)| compare_f64_approx(*a, *b, 0.1f64))
 }
 
 /// Return a new vector without the elements associated with the given indices.
@@ -345,7 +349,7 @@ pub fn discharge_by_index<T: Copy>(ve: &[T], vi: &[usize]) -> Vec<T> {
             if vei < *i {
                 vout.push(*vee);
             } else if vei == *i {
-                break
+                break;
             } else {
                 panic!("indices error: {} > {}", vei, i);
             }
@@ -354,7 +358,7 @@ pub fn discharge_by_index<T: Copy>(ve: &[T], vi: &[usize]) -> Vec<T> {
     while let Some((_, vee)) = ve_iter.next() {
         vout.push(*vee);
     }
-    return vout
+    return vout;
 }
 
 /// Set to NAN the elements of the given vector at the given indices.
@@ -365,7 +369,7 @@ pub fn discharge_by_index<T: Copy>(ve: &[T], vi: &[usize]) -> Vec<T> {
 /// This is used for removing bad datetimes and anomalies.
 pub fn setnan_by_index(ve: &mut [f64], vi: &[usize]) {
     if vi.len() == 0 {
-        return
+        return;
     }
     let mut vi = vi.to_vec();
     vi.sort();
@@ -376,10 +380,10 @@ pub fn setnan_by_index(ve: &mut [f64], vi: &[usize]) {
         loop {
             let (vei, vee) = ve_iter.next().unwrap();
             if vei < *i {
-                continue
+                continue;
             } else if vei == *i {
                 *vee = f64::NAN;
-                break
+                break;
             } else {
                 panic!("indices error: {} > {}", vei, i);
             }

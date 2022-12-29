@@ -1,11 +1,11 @@
 use chrono::prelude::*;
+use load_lpp::find_anomalies;
 use load_lpp::load_process::parse_cli;
 use load_lpp::make_window;
 use load_lpp::mavg;
 use load_lpp::read_bad_datetimes;
-use load_lpp::TimeLoad;
-use load_lpp::find_anomalies;
 use load_lpp::setnan_by_index;
+use load_lpp::TimeLoad;
 
 fn main() {
     let (
@@ -24,6 +24,7 @@ fn main() {
         bad_datetimes,
         bad_time_interval,
         timezone,
+        verbose,
     ) = parse_cli();
 
     println!(
@@ -31,11 +32,33 @@ fn main() {
         timezone
     );
 
+    if verbose {
+        println!("csvin {:?}", csvin);
+        println!("csvout {:?}", csvout);
+        println!("side {}", side);
+        println!("mavg_max_missing_values {}", mavg_max_missing_values);
+        println!(
+            "mavg_max_missing_pct_weight {}",
+            mavg_max_missing_pct_weight
+        );
+        println!("mavg_central_weight {}", mavg_central_weight);
+        println!("mavg_side_weight {}", mavg_side_weight);
+        println!("anomaly_detect {}", anomaly_detect);
+        println!("anomaly_width {}", anomaly_width);
+        println!("anomaly_iqr {}", anomaly_iqr);
+        println!("min_load {}", min_load);
+        println!("max_load {}", max_load);
+        println!("bad_datetimes {:?}", bad_datetimes);
+        println!("bad_time_interval {:?}", bad_time_interval);
+        println!("timezone {}", timezone);
+        println!("verbose {}", verbose);
+    }
+
     println!("> read data from {}", csvin.to_str().unwrap());
     let mut tl = TimeLoad::from_csv(csvin);
 
     let timezone_seconds = timezone * 60 * 60;
-    let timezone_fixed_offset = FixedOffset::east(timezone_seconds);
+    let timezone_fixed_offset = FixedOffset::east_opt(timezone_seconds).unwrap();
     tl.time
         .iter_mut()
         .for_each(|t| *t = t.with_timezone(&timezone_fixed_offset));
@@ -81,14 +104,14 @@ fn main() {
     );
     ftl.replace_outliers_with_nan(min_load, max_load);
 
-
     // Optional anomaly detection, save them to file so that they can be added to the bad datetimes.
     // Meanwhile, set values to nan.
     // Require at least half of the window width to be valid load values, otherwise skip it.
     println!("> anomomaly detection is {}", anomaly_detect);
     if anomaly_detect {
         let min_data_anomaly = anomaly_width / 2usize;
-        let (anomalies_indices, _) = find_anomalies(&ftl.load, anomaly_width, min_data_anomaly, anomaly_iqr);
+        let (anomalies_indices, _) =
+            find_anomalies(&ftl.load, anomaly_width, min_data_anomaly, anomaly_iqr);
         let mut atl = TimeLoad::new(anomalies_indices.len());
         for i in anomalies_indices.iter() {
             atl.time.push(ftl.time.get(*i).unwrap().clone());

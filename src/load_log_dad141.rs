@@ -1,6 +1,6 @@
 use super::VERSION;
 use chrono::prelude::*;
-use clap::{Command, Arg};
+use clap::{value_parser, Arg, Command};
 
 /// Takes the CLI arguments to control the logging application.
 pub fn parse_cli_log() -> (String, String, u16, String, u32, u64, bool) {
@@ -8,57 +8,56 @@ pub fn parse_cli_log() -> (String, String, u16, String, u32, u64, bool) {
         .help("name for the csv file")
         .short('o')
         .long("csvfile")
-        .takes_value(true)
-        .required(true)
+        .num_args(1)
         .default_value("loadcells.csv");
     let arg_ip = Arg::new("ip_address")
         .help("ip address for the telnet connection")
         .short('t')
         .long("ip")
-        .takes_value(true)
-        .required(true)
+        .num_args(1)
         .default_value("192.168.0.100");
     let arg_port = Arg::new("port")
         .help("port for the telnet connection")
         .short('p')
         .long("port")
-        .takes_value(true)
+        .num_args(1)
+        .value_parser(value_parser!(u16))
         .default_value("23");
     let arg_tcmd = Arg::new("tcmd")
         .help("telnet command")
         .long_help("tcmd is automatically formatted, capitalization and enter; GetNet, GetAverage (128 readings over 1 sec)")
         .short('c')
         .long("tcmd")
-        .required(true)
-        .possible_values(&["gn", "ga", "GN", "GA"])
+        .num_args(1)
+        .value_parser(["gn", "ga", "GN", "GA"])
         .default_value("gn");
     let arg_minutes = Arg::new("minutes")
         .help("interlude and rounding for the reading times, in minutes")
         .short('m')
         .long("minutes")
-        .required_unless_present("hours")
         .overrides_with("hours")
-        .takes_value(true)
-        .possible_values(&["1", "2", "3", "5", "10", "15", "20", "30", "60"])
+        .num_args(1)
+        .value_parser(["1", "2", "3", "5", "10", "15", "20", "30", "60"])
+        .value_parser(value_parser!(u32))
         .default_value("2");
     let arg_hours = Arg::new("hours")
         .help("interlude and rounding for the reading times, in hours")
         .long("hours")
-        .required_unless_present("minutes")
         .overrides_with("minutes")
-        .takes_value(true)
-        .possible_values(&["1", "2", "3", "6", "12", "24"]);
+        .num_args(1)
+        .value_parser(value_parser!(u32))
+        .value_parser(["1", "2", "3", "6", "12", "24"]);
     let arg_delay = Arg::new("delay")
         .help("delay connection and logging, in minutes")
         .short('d')
         .long("delay")
-        .required(true)
+        .value_parser(value_parser!(u64))
         .default_value("0");
     let arg_verbose = Arg::new("verbose")
         .help("print verbose information")
         .short('v')
         .long("verbose")
-        .takes_value(false)
+        .num_args(0..)
         .required(false);
     let cli_args = Command::new("Flintec_log")
         .version(VERSION.unwrap_or("unknown"))
@@ -73,27 +72,22 @@ pub fn parse_cli_log() -> (String, String, u16, String, u32, u64, bool) {
         .arg(arg_ip)
         .arg(arg_port)
         .get_matches();
-    let val_csvfile = String::from(cli_args.value_of("csvfile").unwrap_or_default());
-    let val_ip = String::from(cli_args.value_of("ip_address").unwrap_or_default());
-    let val_port = cli_args
-        .value_of("port")
-        .unwrap_or_default()
-        .parse::<u16>()
-        .unwrap();
-    let val_tcmd = String::from(cli_args.value_of("tcmd").unwrap_or_default().to_uppercase());
-    let val_delay = cli_args
-        .value_of("delay")
-        .unwrap_or_default()
-        .parse::<u64>()
-        .unwrap();
-    let val_verbose: bool = cli_args.is_present("verbose");
-    let val_minutes = cli_args.value_of("minutes");
-    let val_hours = cli_args.value_of("hours");
+    let val_csvfile = cli_args.get_one::<String>("csvfile").unwrap().to_owned();
+    let val_ip = cli_args.get_one::<String>("ip_address").unwrap().to_owned();
+    let val_port = *cli_args.get_one::<u16>("port").unwrap();
+    let val_tcmd = cli_args.get_one::<String>("tcmd").unwrap().to_uppercase();
+    let val_delay = *cli_args.get_one::<u64>("delay").unwrap();
+    let val_verbose: bool = cli_args.contains_id("verbose");
+
+    let val_minutes: Option<&u32> = cli_args.get_one::<u32>("minutes");
+    let val_hours: Option<&u32> = cli_args.get_one::<u32>("hours");
+
     let val_interval: u32 = if val_hours.is_some() {
-        val_hours.unwrap().parse::<u32>().unwrap() * 60 as u32
+        val_hours.unwrap() * 60 as u32
     } else {
-        val_minutes.unwrap_or_default().parse::<u32>().unwrap()
+        *val_minutes.unwrap()
     };
+
     return (
         val_csvfile,
         val_ip,
@@ -130,6 +124,6 @@ pub fn chrono_first_rounded(
     let local_sec = datetime.timestamp() + offset;
     let rounding_sec = rounding.num_seconds();
     let first_sec = rounding_sec * ((local_sec + rounding_sec) / rounding_sec) - offset;
-    let first_local = Local.timestamp(first_sec, 0);
+    let first_local = Local.timestamp_opt(first_sec, 0).unwrap();
     first_local
 }
