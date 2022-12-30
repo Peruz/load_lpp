@@ -1,6 +1,6 @@
 use super::VERSION;
 use chrono::prelude::*;
-use clap::{value_parser, Arg, Command};
+use clap::{Arg, Command};
 
 /// Takes the CLI arguments to control the logging application.
 pub fn parse_cli_log() -> (String, String, u16, String, u32, u64, bool) {
@@ -21,7 +21,6 @@ pub fn parse_cli_log() -> (String, String, u16, String, u32, u64, bool) {
         .short('p')
         .long("port")
         .num_args(1)
-        .value_parser(value_parser!(u16))
         .default_value("23");
     let arg_tcmd = Arg::new("tcmd")
         .help("telnet command")
@@ -38,20 +37,17 @@ pub fn parse_cli_log() -> (String, String, u16, String, u32, u64, bool) {
         .overrides_with("hours")
         .num_args(1)
         .value_parser(["1", "2", "3", "5", "10", "15", "20", "30", "60"])
-        .value_parser(value_parser!(u32))
         .default_value("2");
     let arg_hours = Arg::new("hours")
         .help("interlude and rounding for the reading times, in hours")
         .long("hours")
         .overrides_with("minutes")
         .num_args(1)
-        .value_parser(value_parser!(u32))
         .value_parser(["1", "2", "3", "6", "12", "24"]);
     let arg_delay = Arg::new("delay")
         .help("delay connection and logging, in minutes")
         .short('d')
         .long("delay")
-        .value_parser(value_parser!(u64))
         .default_value("0");
     let arg_verbose = Arg::new("verbose")
         .help("print verbose information")
@@ -74,18 +70,25 @@ pub fn parse_cli_log() -> (String, String, u16, String, u32, u64, bool) {
         .get_matches();
     let val_csvfile = cli_args.get_one::<String>("csvfile").unwrap().to_owned();
     let val_ip = cli_args.get_one::<String>("ip_address").unwrap().to_owned();
-    let val_port = *cli_args.get_one::<u16>("port").unwrap();
+    let val_port = cli_args.get_one::<String>("port")
+        .unwrap()
+        .to_owned()
+        .parse::<u16>()
+        .expect("invalid port argument, could not parse string to u16");
     let val_tcmd = cli_args.get_one::<String>("tcmd").unwrap().to_uppercase();
-    let val_delay = *cli_args.get_one::<u64>("delay").unwrap();
+    let val_delay = cli_args.get_one::<String>("delay")
+        .unwrap()
+        .to_owned()
+        .parse::<u64>()
+        .expect("invalid delay argument, could not parse string to u64");
     let val_verbose: bool = cli_args.contains_id("verbose");
-
-    let val_minutes: Option<&u32> = cli_args.get_one::<u32>("minutes");
-    let val_hours: Option<&u32> = cli_args.get_one::<u32>("hours");
-
-    let val_interval: u32 = if val_hours.is_some() {
-        val_hours.unwrap() * 60 as u32
-    } else {
-        *val_minutes.unwrap()
+    // Minutes and hours can be safely unwrapped,
+    // the list of possible values is enforced by clap itself.
+    // Use hours (times 60) if given, otherwise use minutes.
+    // When both are given, the last given is considered (overriding behavior).
+    let val_interval: u32 = match  cli_args.get_one::<String>("hours") {
+        Some(s) =>  s.to_owned().parse::<u32>().unwrap() * 60 as u32,
+        None =>  cli_args.get_one::<String>("minutes").unwrap().to_owned().parse::<u32>().unwrap(),
     };
 
     return (
