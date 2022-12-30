@@ -3,6 +3,9 @@ use chrono::prelude::*;
 use clap::{Arg, Command};
 
 /// Takes the CLI arguments to control the logging application.
+/// Use hours (times 60) if given, otherwise use minutes.
+/// When both are given, the last given is considered (overriding behavior).
+/// Minutes and hours can be safely unwrapped, the list of possible values is enforced by clap itself.
 pub fn parse_cli_log() -> (String, String, u16, String, u32, u64, bool) {
     let arg_csvfile = Arg::new("csvfile")
         .help("name for the csv file")
@@ -70,25 +73,28 @@ pub fn parse_cli_log() -> (String, String, u16, String, u32, u64, bool) {
         .get_matches();
     let val_csvfile = cli_args.get_one::<String>("csvfile").unwrap().to_owned();
     let val_ip = cli_args.get_one::<String>("ip_address").unwrap().to_owned();
-    let val_port = cli_args.get_one::<String>("port")
+    let val_port = cli_args
+        .get_one::<String>("port")
         .unwrap()
         .to_owned()
         .parse::<u16>()
         .expect("invalid port argument, could not parse string to u16");
     let val_tcmd = cli_args.get_one::<String>("tcmd").unwrap().to_uppercase();
-    let val_delay = cli_args.get_one::<String>("delay")
+    let val_delay = cli_args
+        .get_one::<String>("delay")
         .unwrap()
         .to_owned()
         .parse::<u64>()
         .expect("invalid delay argument, could not parse string to u64");
     let val_verbose: bool = cli_args.contains_id("verbose");
-    // Minutes and hours can be safely unwrapped,
-    // the list of possible values is enforced by clap itself.
-    // Use hours (times 60) if given, otherwise use minutes.
-    // When both are given, the last given is considered (overriding behavior).
-    let val_interval: u32 = match  cli_args.get_one::<String>("hours") {
-        Some(s) =>  s.to_owned().parse::<u32>().unwrap() * 60 as u32,
-        None =>  cli_args.get_one::<String>("minutes").unwrap().to_owned().parse::<u32>().unwrap(),
+    let val_interval: u32 = match cli_args.get_one::<String>("hours") {
+        Some(s) => s.to_owned().parse::<u32>().unwrap() * 60 as u32,
+        None => cli_args
+            .get_one::<String>("minutes")
+            .unwrap()
+            .to_owned()
+            .parse::<u32>()
+            .unwrap(),
     };
 
     return (

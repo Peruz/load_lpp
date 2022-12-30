@@ -3,6 +3,9 @@ use clap::{value_parser, Arg, Command};
 use std::path::PathBuf;
 
 /// Takes the CLI arguments that control the plotting of the load time series.
+/// It is safe to unwrap clap cli_args.get_one when a default is given
+/// because the default will be used when no argument is passed (i.e., it is always Some<T>).
+/// svgout does not have a default because it is defined based on the csvin name
 pub fn parse_cli() -> (PathBuf, PathBuf) {
     let arg_csvin = Arg::new("input_csvfile")
         .help("name for the csv file")
@@ -23,14 +26,11 @@ pub fn parse_cli() -> (PathBuf, PathBuf) {
         .arg(arg_csvin)
         .arg(arg_svgout)
         .get_matches();
-    // csvin get_one will always return Some(T) because the default was set
-    // therefore it is safe to simply unwrap
     let csvin: PathBuf = cli_args
         .get_one::<PathBuf>("input_csvfile")
         .unwrap()
         .to_owned();
     println!("{:?}", csvin);
-    // svgout does not have a default because it is defined based on the csvin name
     let svgout = match cli_args.get_one::<PathBuf>("output_svgfile") {
         Some(p) => p.to_owned(),
         None => csvin.with_extension("svg"),

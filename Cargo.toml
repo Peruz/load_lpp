@@ -1,7 +1,7 @@
 [package]
 name = "load_lpp"
 version = "11.0.3"
-authors = ["Peruz <lucaperuzzo@outlook.com>"]
+authors = ["Peruz <luca.peruzzo.2@gmail.com>"]
 edition = "2018"
 license = "GPL-3.0"
 repository = "https://github.com/Peruz/load_lpp"
@@ -11,7 +11,6 @@ description = "CLI apps for logging, processing, and plotting load time series"
 
 [dependencies]
 chrono = "0.4.19"
-# clap = "3.2.*"
 clap = "4.0.*"
 plotters = "0.3.1"
 rayon = "1.5.*"
