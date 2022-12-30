@@ -38,7 +38,7 @@ pub fn parse_cli_log() -> (String, String, u16, String, u32, u64, bool) {
         .overrides_with("hours")
         .num_args(1)
         .value_parser(["1", "2", "3", "5", "10", "15", "20", "30", "60"])
-        .value_parser(value_parser!(u32))
+        // .value_parser(value_parser!(u32))
         .default_value("2");
     let arg_hours = Arg::new("hours")
         .help("interlude and rounding for the reading times, in hours")
@@ -79,7 +79,8 @@ pub fn parse_cli_log() -> (String, String, u16, String, u32, u64, bool) {
     let val_delay = *cli_args.get_one::<u64>("delay").unwrap();
     let val_verbose: bool = cli_args.contains_id("verbose");
 
-    let val_minutes: Option<&u32> = cli_args.get_one::<u32>("minutes");
+    let val_minutes: String = cli_args.get_one::<String>("minutes").unwrap().to_owned();
+    let val_minutes: Option<u32> = val_minutes.parse::<u32>();
     let val_hours: Option<&u32> = cli_args.get_one::<u32>("hours");
 
     let val_interval: u32 = if val_hours.is_some() {
