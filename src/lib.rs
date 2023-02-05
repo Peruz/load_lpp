@@ -26,7 +26,6 @@ pub const ERROR_FLT_SKIPPED: f64 = 999996.;
 pub const ERROR_FLT_PARSE: f64 = 999995.;
 
 /// The main struct for the load time series.
-// #[derive(Debug, Clone, Serialize, Deserialize)]
 #[derive(Debug, Clone)]
 pub struct TimeLoad {
     pub time: Vec<DateTime<FixedOffset>>,
@@ -55,6 +54,7 @@ impl TimeLoad {
         let file = File::open(fin).unwrap();
         let buf = BufReader::new(file);
         let mut timeload = TimeLoad::new(10000 as usize);
+
         for l in buf.lines().skip(1) {
             let l_unwrap = match l {
                 Ok(l_ok) => l_ok,
@@ -108,12 +108,7 @@ impl TimeLoad {
         self.time
             .windows(2)
             .map(|w| {
-                assert!(
-                    w[1] > w[0],
-                    "time series is not ordered: {} < {}",
-                    w[1],
-                    w[0]
-                );
+                assert!( w[1] > w[0], "time series is not ordered: {} < {}", w[1], w[0]);
                 w[1] - w[0]
             })
             .reduce(|wp, wn| {
@@ -288,7 +283,7 @@ mod tests {
     fn datetime_parsing_with_timezone() {
         let timezone_hours: i32 = -8;
         let timezone = timezone_hours * 60 * 60;
-        let timezone_fixed_offset = FixedOffset::east(timezone);
+        let timezone_fixed_offset = FixedOffset::east_opt(timezone).unwrap();
 
         // test DST
         let dtstr_dst = "2021-11-07T01:30:00-07:00";
@@ -419,7 +414,7 @@ mod tests {
         // define time zone for the test
         let mut timezone: i32 = -8;
         timezone *= 60 * 60;
-        let timezone_fixed_offset = FixedOffset::east(timezone);
+        let timezone_fixed_offset = FixedOffset::east_opt(timezone).unwrap();
 
         // read the time series and adjust to the deifned time zone
         let mut tl = TimeLoad::from_csv(String::from("./test/timeload_raw.csv"));
@@ -490,7 +485,7 @@ mod tests {
         // define time zone for the test
         let mut timezone: i32 = -8;
         timezone *= 60 * 60;
-        let timezone_fixed_offset = FixedOffset::east(timezone);
+        let timezone_fixed_offset = FixedOffset::east_opt(timezone).unwrap();
 
         // read the time series and adjust to the deifned time zone
         let mut tl = TimeLoad::from_csv(String::from("./test/parallel_timeload_raw.csv"));

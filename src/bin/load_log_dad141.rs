@@ -26,9 +26,9 @@ fn main() {
     }
 
     // Init connection with a closure, which can later be used to refresh the connection if needed.
-    // The closures captures the variables in the environment where they are defined,
-    // in this case, it is defined here and it captures: socket and timeout.
-    // Then we can call the closure anywhere, without bringing around also socket and timeout.
+    // Closures capture the variables in the environment where they are defined.
+    // In this case, it is defined here and it captures: socket and timeout.
+    // Then, we can call the closure anywhere, without bringing around also socket and timeout.
     // This closure takes no arguments because it only needs these environmental variables,
     // no additional argument (at calling time) is required to init the connection.
     // It will be called as closure().
@@ -99,6 +99,7 @@ fn main() {
             _ => println!("warning, failed to write command"),
         }
 
+        // a short delay before reading the logger response
         std::thread::sleep(write_read_pause);
 
         raw_reading = match connection.read(&mut buffer) {
