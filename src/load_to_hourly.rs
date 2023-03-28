@@ -2,10 +2,9 @@ use super::VERSION;
 use clap::{value_parser, Arg, Command};
 use std::path::PathBuf;
 
-/// Takes the CLI arguments that control the plotting of the load time series.
+/// Takes the CLI arguments that control the downsample of the load time series.
 /// It is safe to unwrap clap cli_args.get_one when a default is given
 /// because the default will be used when no argument is passed (i.e., it is always Some<T>).
-/// svgout does not have a default because it is defined based on the csvin name
 pub fn parse_cli() -> (PathBuf, PathBuf) {
 
     let arg_csvin = Arg::new("input_csvfile")
@@ -16,19 +15,19 @@ pub fn parse_cli() -> (PathBuf, PathBuf) {
         .value_parser(value_parser!(PathBuf))
         .default_value("loadcells.csv");
 
-    let arg_svgout = Arg::new("output_svgfile")
-        .help("name of the output svg file")
+    let arg_csvout = Arg::new("output_csvfile")
+        .help("name of the output csv file")
         .short('o')
-        .long("svgfile")
+        .long("csvfile")
         .value_parser(value_parser!(PathBuf))
         .num_args(1);
 
-    let cli_args = Command::new("Flintec_plot")
+    let cli_args = Command::new("Flintec_downsample")
         .version(VERSION.unwrap_or("unknown"))
         .author("Luca Peruzzo")
-        .about("cli app to plot the load time series")
+        .about("cli app to downsample the load time series")
         .arg(arg_csvin)
-        .arg(arg_svgout)
+        .arg(arg_csvout)
         .get_matches();
 
     let csvin: PathBuf = cli_args
@@ -36,12 +35,12 @@ pub fn parse_cli() -> (PathBuf, PathBuf) {
         .unwrap()
         .to_owned();
 
-    let svgout: PathBuf = match cli_args.get_one::<PathBuf>("output_svgfile") {
+    let csvout: PathBuf = match cli_args.get_one::<PathBuf>("output_csvfile") {
         Some(p) => p.to_owned(),
-        None => csvin.with_extension("svg"),
+        None => csvin.with_file_name("hourly.csv"),
     };
 
-    println!("read from {:?} and save to {:?}", csvin, svgout);
+    println!("read from {:?} and save to {:?}", csvin, csvout);
 
-    return (csvin, svgout);
+    return (csvin, csvout);
 }

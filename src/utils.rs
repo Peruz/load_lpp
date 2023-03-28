@@ -194,15 +194,16 @@ pub fn mavg_parallel_fold(v: &[f64], w: &[f64]) -> Vec<f64> {
     vout
 }
 
-// A configurable and automatic detection of anomalous periods.
-// Anomalies can be periods that have to be removed
-// or the actual events of interest.
+// A configurable and automatic detection of anomalous periods
+// based on the interquartile range (IQR).
+// Anomalies can be periods that have to be removed or the actual events of interest.
 // For example, the reported anomalies can be appended to the bad datetimes input
 // and thus be removed in the successive processing iteration.
 //
 // Run a rolling window of width `window_width` over the vector `v`.
-// Make sure `window_width` is larger than the minimum number of data required by the user `min_window_data`,
-// and that this number is statistically sufficient for calculating the IQR, see `MIN_DATA_IQR`.
+// Make sure that:
+// 1] `window_width` is larger than the minimum number of data required by the user `min_window_data`
+// 2] `min_window_data` is statistically sufficient for calculating the IQR, see `MIN_DATA_IQR`.
 //
 // Return unique values of the indices and loads that fell in an anomalous window.
 pub fn find_anomalies(
@@ -241,7 +242,7 @@ pub fn find_anomalies(
         }
     }
     // Anomalous windows may give duplicates, keep only unique indices:
-    // first order so that multiple duplicates will be consecutive,
+    // first, order the indices so that multiple duplicates will be consecutive,
     // then deduplicate more quickly and in-place.
     anomalies_index.sort_by(|a, b| a.partial_cmp(b).unwrap());
     let (anomalies_index_dedup, _) = anomalies_index.partition_dedup_by(|a, b| a == b);

@@ -11,6 +11,7 @@ use std::path::Path;
 pub mod load_log_dad141;
 pub mod load_plot;
 pub mod load_process;
+pub mod load_to_hourly;
 pub mod utils;
 
 pub const VERSION: Option<&'static str> = option_env!("CARGO_PKG_VERSION");
@@ -151,6 +152,87 @@ impl TimeLoad {
                 None => println!("could not find and exclude bad datetime {}", bdt),
             }
         }
+    }
+
+    /// Downsample to hourly data
+    pub fn to_hourly(& self) -> TimeLoad {
+
+        if self.time.len() == 0 {
+            panic!("cannot get hourly time series from empty time-load data set");
+        }
+
+        // heuristic estimation of the final length for allocation
+        let mut hourly_timeload = TimeLoad::new(self.time.len() / 60);
+        let mut hourly_time: Option<DateTime<FixedOffset>> = None;
+        let mut hourly_loads: Vec<f64> = Vec::with_capacity(60);
+
+        self.time
+            .iter()
+            .zip(self.load.iter())
+            .for_each(|(t, l)| {
+
+                // get the hourly datetime
+                let mut iter_time = t.clone();
+                if iter_time.minute() >= 30u32 {
+                    iter_time += chrono::Duration::hours(1i64);
+                }
+                iter_time = iter_time.with_minute(0u32).unwrap();
+                iter_time = iter_time.trunc_subsecs(0u16);
+
+                match hourly_time {
+
+                    Some(ht) => {
+
+                        if ht == iter_time {
+                            if !l.is_nan() {
+                                hourly_loads.push(*l)
+                            }
+
+                        } else {
+
+                            // finish and push the previous hourly time and mean load
+                            let hourly_mean_load = if hourly_loads.len() >= 1usize {
+                                hourly_loads.iter().sum::<f64>() / hourly_loads.len() as f64
+                            } else if hourly_loads.len() == 0usize {
+                                f64::NAN
+                            } else {
+                                panic!("error, could not calculate the hourly load for {}", ht)
+                            };
+                            hourly_timeload.time.push(ht);
+                            hourly_timeload.load.push(hourly_mean_load);
+
+                            // set the new hourly time
+                            hourly_time = Some(iter_time);
+                            // clear the load vector and push the first one if not nan
+                            hourly_loads.clear();
+                            if !l.is_nan() {
+                                hourly_loads.push(*l)
+                            }
+
+                        }
+                    },
+                    None => {
+                        hourly_time = Some(iter_time);
+                        if !l.is_nan() {
+                            hourly_loads.push(*l)
+                        }
+
+                    },
+                }
+            });
+        
+        // finish by pushing the last hourly time and mean load
+        let hourly_mean_load = if hourly_loads.len() >= 1usize {
+            hourly_loads.iter().sum::<f64>() / hourly_loads.len() as f64
+        } else if hourly_loads.len() == 0usize {
+            f64::NAN
+        } else {
+            panic!("could not find the hourly load for {}", hourly_time.unwrap())
+        };
+        hourly_timeload.time.push(hourly_time.unwrap());
+        hourly_timeload.load.push(hourly_mean_load);
+
+        hourly_timeload
     }
 
     /// Replace all values measured within the time interval with NANs.
@@ -477,6 +559,19 @@ mod tests {
 
         // save the filtered and smooth load series
         ctl.to_csv("./test/timeload_processed.csv");
+    }
+
+    #[test]
+    fn test_to_hourly() {
+        let tl = TimeLoad::from_csv(String::from("./test/short_for_hourly.csv"));
+        let htl = &tl.to_hourly();
+        let correct_hourly_loads = vec![1.0f64, 1.5f64];
+        let correct_hourly_times = vec![
+            DateTime::parse_from_rfc3339("2021-10-13T23:00:00-08:00").unwrap(),
+            DateTime::parse_from_rfc3339("2021-10-14T00:00:00-08:00").unwrap(),
+        ];
+        assert! {compare_vecf64_approx(&htl.load, &correct_hourly_loads)};
+        assert! {htl.time == correct_hourly_times};
     }
 
     #[test]
