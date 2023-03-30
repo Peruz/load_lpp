@@ -155,10 +155,10 @@ impl TimeLoad {
     }
 
     /// Downsample to hourly data
-    pub fn to_hourly(& self) -> TimeLoad {
+    pub fn to_hourly(& self) -> Result<TimeLoad, EmptyTimeLoad> {
 
         if self.time.len() == 0 {
-            panic!("cannot get hourly time series from empty time-load data set");
+            return Err(EmptyTimeLoad{})
         }
 
         // heuristic estimation of the final length for allocation
@@ -191,13 +191,7 @@ impl TimeLoad {
                         } else {
 
                             // finish and push the previous hourly time and mean load
-                            let hourly_mean_load = if hourly_loads.len() >= 1usize {
-                                hourly_loads.iter().sum::<f64>() / hourly_loads.len() as f64
-                            } else if hourly_loads.len() == 0usize {
-                                f64::NAN
-                            } else {
-                                panic!("error, could not calculate the hourly load for {}", ht)
-                            };
+                            let hourly_mean_load = mean_or_nan(&hourly_loads);
                             hourly_timeload.time.push(ht);
                             hourly_timeload.load.push(hourly_mean_load);
 
@@ -222,17 +216,11 @@ impl TimeLoad {
             });
         
         // finish by pushing the last hourly time and mean load
-        let hourly_mean_load = if hourly_loads.len() >= 1usize {
-            hourly_loads.iter().sum::<f64>() / hourly_loads.len() as f64
-        } else if hourly_loads.len() == 0usize {
-            f64::NAN
-        } else {
-            panic!("could not find the hourly load for {}", hourly_time.unwrap())
-        };
+        let hourly_mean_load = mean_or_nan(&hourly_loads);
         hourly_timeload.time.push(hourly_time.unwrap());
         hourly_timeload.load.push(hourly_mean_load);
 
-        hourly_timeload
+        Ok(hourly_timeload)
     }
 
     /// Replace all values measured within the time interval with NANs.
@@ -564,7 +552,7 @@ mod tests {
     #[test]
     fn test_to_hourly() {
         let tl = TimeLoad::from_csv(String::from("./test/short_for_hourly.csv"));
-        let htl = &tl.to_hourly();
+        let htl = &tl.to_hourly().expect("empty data set");
         let correct_hourly_loads = vec![1.0f64, 1.5f64];
         let correct_hourly_times = vec![
             DateTime::parse_from_rfc3339("2021-10-13T23:00:00-08:00").unwrap(),

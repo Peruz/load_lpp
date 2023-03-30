@@ -9,6 +9,6 @@ fn main() {
         csvout.to_str().unwrap()
     );
     let tw = TimeLoad::from_csv(csvin);
-    let htw = tw.to_hourly();
+    let htw = tw.to_hourly().expect("empty data set");
     htw.to_csv(csvout)
 }

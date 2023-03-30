@@ -20,6 +20,8 @@ pub fn suitable_xfmt(d: chrono::Duration) -> &'static str {
     return xfmt;
 }
 
+
+
 /// Read a list of bad datetimes to skip, always from RFC 3339 - ISO 8601 format.
 pub fn read_bad_datetimes<P>(fin: P) -> Vec<DateTime<FixedOffset>>
 where
@@ -229,16 +231,11 @@ pub fn find_anomalies(
         let (_ql, _qu, iqr) = match calculate_iqr(wl, min_window_data) {
             Ok(res) => res,
             Err(_e) => {
-                // println!("{}", _e);
                 continue;
             }
         };
         if iqr > max_iqr {
             anomalies_index.append(&mut wi.to_owned());
-            // println!(
-            //     "iqr {}, upper {} and lower {}\nfound anomaly in window:\n{:?}\n{:?}",
-            //     _ql, _qu, iqr, wi, wl
-            // );
         }
     }
     // Anomalous windows may give duplicates, keep only unique indices:
@@ -292,24 +289,26 @@ pub fn calculate_iqr(s: &[f64], min_len: usize) -> Result<(f64, f64, f64), LenEr
     return Ok((ql, qu, iqr));
 }
 
-// An Error type for handling length requirements,
-// often needed in time series and statistics.
-#[derive(Debug)]
-pub struct LenErr {
-    pub min_len: Option<usize>,
-    pub got_len: usize,
-    pub max_len: Option<usize>,
+pub fn mean_or_nan(v: &Vec<f64>) -> f64 {
+    
+    let mut contains_nan = false;
+    v.iter().for_each(|f| {
+          if f.is_nan() {
+              contains_nan = true
+          }
+    });
+
+    let mean = if contains_nan {
+        f64::NAN
+    } else if v.len() == 0usize {
+        f64::NAN
+    } else {
+        v.iter().sum::<f64>() / v.len() as f64
+    };
+
+    mean
 }
-impl Error for LenErr {}
-impl fmt::Display for LenErr {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "Invalid length, got {}, required is >= {:?} and <= {:?}",
-            self.got_len, self.min_len, self.max_len
-        )
-    }
-}
+
 
 pub fn compare_f64_exact(a: f64, b: f64) -> bool {
     (a.is_nan() && b.is_nan()) || (a == b)
@@ -389,5 +388,34 @@ pub fn setnan_by_index(ve: &mut [f64], vi: &[usize]) {
                 panic!("indices error: {} > {}", vei, i);
             }
         }
+    }
+}
+
+// An Error type for empty TimeLoad
+#[derive(Debug)]
+pub struct EmptyTimeLoad();
+impl fmt::Display for EmptyTimeLoad {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Found an empty TimeLoad")
+    }
+}
+impl Error for EmptyTimeLoad {}
+
+// An Error type for handling length requirements,
+// often needed in time series and statistics.
+#[derive(Debug)]
+pub struct LenErr {
+    pub min_len: Option<usize>,
+    pub got_len: usize,
+    pub max_len: Option<usize>,
+}
+impl Error for LenErr {}
+impl fmt::Display for LenErr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "Invalid length, got {}, required is >= {:?} and <= {:?}",
+            self.got_len, self.min_len, self.max_len
+        )
     }
 }
