@@ -266,6 +266,7 @@ impl TimeLoad {
 
     /// Write the datetime and load columns to a csv file at the given path.
     /// Use RFC 3339 - ISO 8601 for datetime.
+    /// %Y-%m-%dT%H:%M:%S%z
     pub fn to_csv<P>(self, fout: P)
     where
         P: AsRef<Path>,
