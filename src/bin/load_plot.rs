@@ -9,5 +9,6 @@ fn main() {
         svgout.to_str().unwrap()
     );
     let tw = TimeLoad::from_csv(csvin);
-    tw.plot_datetime(svgout).unwrap();
+    // tw.plot_datetime(svgout).unwrap();
+    tw.plotly_plot_datetime(svgout).unwrap();
 }

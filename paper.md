@@ -86,6 +86,8 @@ other field (accelerometers, ...).
 At the best of our knowledge, we do not know of and equvalent for load cells.
 The only exception being hx711 (url, limitation: language and documentation, no processing).
 
+Despite the growing popularity of RUST language, full real-world examples remain relatively rare.
+Here we show....
 
 The need for and open, extendible, and ... framework that goes beyond the limitations 
 
@@ -113,6 +115,8 @@ efficient numerical tools, many of which require the same base code (e.g., for
 performing numerical orbit integration)
 
 # Statement of need
+
+
 
 `Gala` is an Astropy-affiliated Python package for galactic dynamics. Python
 enables wrapping low-level languages (e.g., C) for speed without losing

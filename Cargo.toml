@@ -1,16 +1,25 @@
 [package]
 name = "load_lpp"
-version = "11.0.4"
+version = "11.0.6"
 authors = ["Peruz <luca.peruzzo.2@gmail.com>"]
-edition = "2018"
+edition = "2021"
 license = "GPL-3.0"
 repository = "https://github.com/Peruz/load_lpp"
 description = "CLI apps for logging, processing, and plotting load time series"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-chrono = "0.4.19"
-clap = "4.0.*"
-plotters = "0.3.1"
-rayon = "1.5.*"
+
+# chrono = "0.4.*"
+chrono = { git = "https://github.com/chronotope/chrono.git" }
+
+# clap = "4.5.*"
+clap = { git = "https://github.com/clap-rs/clap" }
+
+# plotters = "0.3.*"
+# plotters = { git = "https://github.com/plotters-rs/plotters" }
+
+# plotly
+plotly = { version = "0.8.4" , features = ["kaleido"] }
+
+# rayon = "1.10.*"
+rayon = { git = "https://github.com/rayon-rs/rayon" }

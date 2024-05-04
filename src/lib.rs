@@ -3,10 +3,14 @@
 extern crate test;
 pub use crate::utils::*;
 use chrono::prelude::*;
-use plotters::prelude::*;
+// use plotters::prelude::*;
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
+use plotly::{Plot, Scatter};
+use plotly::layout::{Axis, BarMode, BoxMode, Layout, Margin};
+use plotly::common::{Title, Font };
+use plotly::color::Rgba;
 
 pub mod load_log_dad141;
 pub mod load_plot;
@@ -281,50 +285,68 @@ impl TimeLoad {
     }
 
     /// Plot the load time series to svg.
-    pub fn plot_datetime<P>(&self, fout: P) -> Result<(), Box<dyn std::error::Error>>
+    // pub fn plot_datetime<P>(&self, fout: P) -> Result<(), Box<dyn std::error::Error>>
+    // where
+    //     P: AsRef<Path>,
+    // {
+    //     let (xmin, xmax) = min_and_max(self.time.iter());
+    //     let xspan: chrono::Duration = xmax - xmin;
+    //     let xfmt = suitable_xfmt(xspan);
+    //     let (ymin, ymax) = min_and_max(self.load.iter().filter(|x| !x.is_nan()));
+    //     let yspan = (ymax - ymin) / 10f64;
+    //     let ymin = ymin - yspan;
+    //     let ymax = ymax + yspan;
+    //     let root = SVGBackend::new(&fout, (1600, 800)).into_drawing_area();
+    //     root.fill(&WHITE)?;
+    //     let mut chart = ChartBuilder::on(&root)
+    //         .margin(50)
+    //         .x_label_area_size(40)
+    //         .y_label_area_size(100)
+    //         .build_cartesian_2d(xmin.clone()..xmax.clone(), ymin..ymax)?;
+    //     chart
+    //         .configure_mesh()
+    //         .light_line_style(&TRANSPARENT)
+    //         .bold_line_style(RGBColor(100, 100, 100).mix(0.5).stroke_width(2))
+    //         .set_all_tick_mark_size(2)
+    //         .label_style(("sans-serif", 20))
+    //         .y_desc("load [kg]")
+    //         .x_labels(16)
+    //         .y_labels(25)
+    //         .x_label_formatter(&|x| x.format(xfmt).to_string())
+    //         .y_label_formatter(&|x: &f64| format!("{:5}", x))
+    //         .x_desc(format!("datetime [{}]", xfmt.replace("%", "")))
+    //         .draw()?;
+    //     let witer = &mut self.load[..].split(|x| x.is_nan());
+    //     let titer = &mut self.time[..].into_iter();
+    //     for wchunk in witer.into_iter() {
+    //         if wchunk.len() == 0 {
+    //             titer.next();
+    //             continue;
+    //         } else {
+    //             let area =
+    //                 AreaSeries::new(titer.zip(wchunk).map(|(x, y)| (*x, *y)), 0.0, &RED.mix(0.2))
+    //                     .border_style(BLACK.stroke_width(1));
+    //             chart.draw_series(area)?;
+    //         }
+    //     }
+    //     Ok(())
+    // }
+
+    pub fn plotly_plot_datetime<P>(&self, _fout: P) -> Result<(), Box<dyn std::error::Error>>
     where
         P: AsRef<Path>,
     {
-        let (xmin, xmax) = min_and_max(self.time.iter());
-        let xspan: chrono::Duration = xmax - xmin;
-        let xfmt = suitable_xfmt(xspan);
-        let (ymin, ymax) = min_and_max(self.load.iter().filter(|x| !x.is_nan()));
-        let yspan = (ymax - ymin) / 10f64;
-        let ymin = ymin - yspan;
-        let ymax = ymax + yspan;
-        let root = SVGBackend::new(&fout, (1600, 800)).into_drawing_area();
-        root.fill(&WHITE)?;
-        let mut chart = ChartBuilder::on(&root)
-            .margin(50)
-            .x_label_area_size(40)
-            .y_label_area_size(100)
-            .build_cartesian_2d(xmin.clone()..xmax.clone(), ymin..ymax)?;
-        chart
-            .configure_mesh()
-            .light_line_style(&TRANSPARENT)
-            .bold_line_style(RGBColor(100, 100, 100).mix(0.5).stroke_width(2))
-            .set_all_tick_mark_size(2)
-            .label_style(("sans-serif", 20))
-            .y_desc("load [kg]")
-            .x_labels(16)
-            .y_labels(25)
-            .x_label_formatter(&|x| x.format(xfmt).to_string())
-            .y_label_formatter(&|x: &f64| format!("{:5}", x))
-            .x_desc(format!("datetime [{}]", xfmt.replace("%", "")))
-            .draw()?;
-        let witer = &mut self.load[..].split(|x| x.is_nan());
-        let titer = &mut self.time[..].into_iter();
-        for wchunk in witer.into_iter() {
-            if wchunk.len() == 0 {
-                titer.next();
-                continue;
-            } else {
-                let area =
-                    AreaSeries::new(titer.zip(wchunk).map(|(x, y)| (*x, *y)), 0.0, &RED.mix(0.2))
-                        .border_style(BLACK.stroke_width(1));
-                chart.draw_series(area)?;
-            }
-        }
+        let mut plot = Plot::new(); 
+        let trace = Scatter::new(self.time.iter().map(|t| t.to_rfc3339()).collect(), self.load.clone());
+        plot.add_trace(trace);
+        let background_color: Rgba = Rgba::new(200, 200, 200, 0.5);
+        let layout = Layout::new()
+        .x_axis(Axis::new().title(Title::new("Time")).zero_line(false).line_width(2).n_ticks(12))
+        .y_axis(Axis::new().title(Title::new("Load kg")).zero_line(false).tick_format("d").line_width(2))
+        .font(Font::new().size(16))
+        .plot_background_color(background_color);
+        plot.set_layout(layout);
+        plot.show();
         Ok(())
     }
 }
@@ -544,7 +566,7 @@ mod tests {
         ctl.load = smooth;
 
         // plot the filtered and smooth load series
-        ctl.plot_datetime("./test/timeload_processed.svg").unwrap();
+        ctl.plotly_plot_datetime("./test/timeload_processed.svg").unwrap();
 
         // save the filtered and smooth load series
         ctl.to_csv("./test/timeload_processed.csv");
@@ -654,7 +676,7 @@ mod tests {
         ctl.load = smooth;
 
         // plot the filtered and smooth load series
-        ctl.plot_datetime("./test/parallel_timeload_processed.svg")
+        ctl.plotly_plot_datetime("./test/parallel_timeload_processed.svg")
             .unwrap();
 
         // save the filtered and smooth load series
