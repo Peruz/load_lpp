@@ -8,7 +8,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
 use plotly::{Plot, Scatter};
-use plotly::layout::{Axis, BarMode, BoxMode, Layout, Margin};
+use plotly::layout::{Axis, Layout};
 use plotly::common::{Title, Font };
 use plotly::color::Rgba;
 

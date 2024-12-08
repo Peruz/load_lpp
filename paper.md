@@ -1,28 +1,34 @@
 ---
 title: 'Load_LPP: a Rust pipeline to Log, Process, and Plot load time series'
 tags:
-  - Rust
   - Instrumentation
   - TCP
-  - data logger
-  - time series
-  - processing
-  - parallelization
+  - Data logger
+  - Time series
+  - Monitoring
+  - Parallelization
+  - Rust
 authors:
-  - name: Luca Peruzzo^[first author] # note this makes a footnote saying 'co-first author'
+  - name: Luca Peruzzo^[first author]
     orcid: 0000-0002-4065-8910
-    affiliation: "1"
+    affiliation: "1", "2"
   - name:  Chunwei Chou
-    affiliation: "1"
-  - name: Irene Tonelato
     affiliation: "2"
+  - name: Mary Benjamin
+    affiliation: "1", "3"
+  - name: Tonelato Irene
+    affiliation: "4"
   - name: Yuxin Wu
-    affiliation: "1"
+    affiliation: "2"
 affiliations:
- - name: Environmental and Earth Sciences Area, Lawrence Berkeley National Laboratory, Berkeley, California.
+ - name: Universisty of Padova, Department of Geosciences, Italy.
    index: 1
- - name: Independent Researcher
+ - name: Environmental and Earth Sciences Area, Lawrence Berkeley National Laboratory, California, USA.
    index: 2
+ - name: Institute of Agricultural Sciences, Madrid, ES
+   index: 3
+ - name: Independent contributor
+   index: 4
 date: 12 February 2022
 bibliography: paper.bib
 
@@ -33,7 +39,7 @@ aas-journal: Astrophysical Journal <- The name of the AAS journal.
 ---
 
 # Key Points and Ideas
-Need for reliability and/or performance in distributed sensing capable of continuous monitoring.
+TNeed for reliability and/or performance in distributed sensing capable of continuous monitoring.
 For example, edge devices and system of load cells, and engineering with quality standards.
 The safely-compiled rust binaries provide more flexibility of deployment.
 At the same time, it is relatively maintainable (high level convenient tools and compiler checks and cargo)
