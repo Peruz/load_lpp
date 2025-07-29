@@ -107,6 +107,9 @@ strong signal (i.e., significant and fast load changes) favors shorter windows t
 A third and last executable is the plotting part, which allows a quick visualization of the processed data, reading either the raw or processed data.
 The Rust `plotly` bindings are used to handle the smooth and interactive visualization of the expected large time series, up to some million of measurements.
 
+Several tests are including in the library to verify the correctness of the functionalities.
+The testing part uses the `cargo test` default command.
+
 
 # Acknowledgements
 We acknowledge the support of the Advanced Research Projects Agency - Energy, Rhizosphere Observations Optimizing Terrestrial Sequestration (ARPA-E ROOTS).
