@@ -1,6 +1,6 @@
 [package]
 name = "load_lpp"
-version = "11.0.6"
+version = "12.0.0"
 authors = ["Peruz <luca.peruzzo.2@gmail.com>"]
 edition = "2024"
 license = "GPL-3.0"
