@@ -5,6 +5,9 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::{error::Error, fmt};
+use nalgebra::{DVector, DMatrix};
+use plotly::{Plot, Scatter};
+
 
 /// If longer than one week, keep year, month and day, drop hours;
 /// if not, but longer than one day, add hours.
@@ -195,6 +198,113 @@ pub fn mavg_parallel_fold(v: &[f64], w: &[f64]) -> Vec<f64> {
         });
     vout
 }
+
+
+pub fn awat_regression_plot(data: DVector<f64>, model:DVector<f64>) {
+    let l = data.column(0).len();
+    let base: Vec<i32> = (0..l).map(|e| e as i32).collect();
+    let mut plot = Plot::new();
+    let trace_data = Scatter::new(base.clone(), data.data.as_vec().to_vec()).name("data");
+    plot.add_trace(trace_data);
+    let trace_model = Scatter::new(base.clone(), model.data.as_vec().to_vec()).name("fit");
+    plot.add_trace(trace_model);
+    plot.show();
+}
+
+
+// Adaptive Window and Adaptive Threshold.
+// Peters et al., 2014. Hydrol. Earth Syst. Sci., 18, 1189–1198, 2014
+// This assumes either ET or P is active, not both at the same time.
+// d is the threshold, smaller changes are ignored.
+// w is the width of the moving-average window.
+// The variable moving average can address the variability of
+// the noise intensity (wind, temp, etc.) and signal strength (rain and strong ET).
+pub fn awat_regression(v: &[f64], len_w: usize) -> (u8, f64) {
+    let k_max = 6;  // this is standard
+    let plot = false;
+
+    let len_v: usize = v.len();
+    assert!(
+        len_w < len_v,
+        "length of moving average window > length of vector"
+    );
+    assert!(
+        len_w % 2 == 1,
+        "the moving average window has an even number of elements; \
+        it should be odd to have a central element"
+    );
+
+    let base_lower: i32 = - (len_w as i32 - 1) / 2;
+    let base_upper: i32 = (len_w as i32 + 1) / 2;
+    let base: Vec<i32> = (base_lower..base_upper).collect();
+
+    // init and populate g matrix
+    let mut g_all = DMatrix::from_element(len_w, k_max + 1, 1.);
+    for i in 1..7 {
+        let dv  = DVector::from_iterator(len_w, base.clone().iter().map(|e| e.pow(i) as f64));
+        g_all.set_column(i as usize, &dv);
+    }
+    // alternative initialization
+    // let g_all = DMatrix::from_columns(&[dv0, dv1, dv2, dv3, dv4, dv5, dv6]);
+
+    let d = DVector::from_column_slice(&v[0..len_w]);
+    let ssd = d.dot(&d);
+
+    let mut solutions = DMatrix::zeros(k_max + 1, k_max);
+    let mut models: DMatrix<f64> = DMatrix::zeros(len_w, k_max);
+    let mut ssrs: Vec<f64> = Vec::with_capacity(6);
+    let mut aics: Vec<f64> = Vec::with_capacity(6);
+
+    for k in 1..(k_max + 1) {
+
+        let g = g_all.columns(0, k + 1);
+
+        let s: DVector<f64> = (g.transpose() * &g).try_inverse().unwrap() * g.transpose() * d.clone();
+
+        for (i, &e) in s.iter().enumerate() {
+            solutions[(i, k - 1)] = e
+        }
+
+        let sol: DVector<f64> = solutions.column(k - 1).into();
+
+        let model = &g_all * sol;
+        models.set_column(k - 1, &model);
+
+        let res = &model - &d;
+        let ssr = res.dot(&res);
+        ssrs.push(ssr);
+
+        // Akaike's information criterion
+        let n = (k + 1) as f64;
+        let r = len_w as f64;
+        let aic = r * f64::ln(ssr / r) + (2. * n) + ((2. * n * (n + 1.)) / (r - n - 1.));
+        aics.push(aic);
+
+    }
+
+    // find best acis, and associated solution and order
+    let mut min_index = 0;
+    let mut min_value = aics[0];
+    for (i, &e) in aics.iter().enumerate() {
+        if e < min_value {
+            min_value = e;
+            min_index = i;
+        }
+    }
+    // let sol_best: DVector<f64> = solutions.column(min_index).into();
+    let mod_best: DVector<f64> = models.column(min_index).into();
+    let ssr_best = ssrs[min_index];
+    let k_best = (min_index + 1) as u8;
+
+    if plot {
+        awat_regression_plot(d, mod_best)
+    }
+
+    let b = ssr_best / ssd;
+
+    (k_best, b)
+}
+
 
 // A configurable and automatic detection of anomalous periods
 // based on the interquartile range (IQR).

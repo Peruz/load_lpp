@@ -2,24 +2,24 @@
 name = "load_lpp"
 version = "11.0.6"
 authors = ["Peruz <luca.peruzzo.2@gmail.com>"]
-edition = "2021"
+edition = "2024"
 license = "GPL-3.0"
 repository = "https://github.com/Peruz/load_lpp"
 description = "CLI apps for logging, processing, and plotting load time series"
 
 [dependencies]
 
-# chrono = "0.4.*"
-chrono = { git = "https://github.com/chronotope/chrono.git" }
+chrono = "0.4.*"
+# chrono = { git = "https://github.com/chronotope/chrono.git" }
 
-# clap = "4.5.*"
-clap = { git = "https://github.com/clap-rs/clap" }
+clap = "4.5.*"
+# clap = { git = "https://github.com/clap-rs/clap" }
 
-# plotters = "0.3.*"
-# plotters = { git = "https://github.com/plotters-rs/plotters" }
+nalgebra = "0.33.2"
 
 # plotly
-plotly = { version = "0.8.4" , features = ["kaleido"] }
+# plotly = { version = "0.8.4" , features = ["kaleido"] }
+plotly = { version = "0.13", features = ["kaleido"] }
 
-# rayon = "1.10.*"
-rayon = { git = "https://github.com/rayon-rs/rayon" }
+rayon = "1.10.*"
+# rayon = { git = "https://github.com/rayon-rs/rayon" }

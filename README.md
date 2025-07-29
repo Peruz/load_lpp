@@ -3,7 +3,7 @@ This crate compiles the following three binaries for logging, preprocessing, and
 The application is written in Rust and targets low-level optimization and long-term stability.
 
 ## 1 load_log_dad141
-CLI application to log load cells via the common DAD 141.1 digital amplifier with TCP-UTF8.
+CLI application to log load cells via the common TCP-UTF8 protocol.
 The application allows automatic logging at rounded intervals of minutes or hours that are divisors of 1 day.
 Valid minutes intervals are 1, 2, 3, 5, 10, 15, 20, 30, and 60 minute(s).
 Valid hours intervals are 1, 2, 3, 6, 12, and 24 hour(s).
@@ -18,27 +18,25 @@ This CLI application processes the load time series with the following steps:
 5. Optionally, replace given datetimes from an input file with NAN (e.g., values disturbed by maintenance).
 6. Optionally, replace a given daily interval with NAN (e.g., daily temperature effects or maintenance period).
 7. Optionally, automatically detect and report anomalous periods that would be hardly smoothed and corrected by the following moving average.
-8. Optionally, use a weighted moving average to smooth the time series (e.g., wind and temperature) and fill the NAN values.
-It uses a moving average with linear weights between a user-defined central weight (typically the max weight) and a side weight (typically the minimum weight). The width of the window can be adjusted by specifying the number of data points on each side, this parameterization guaranties the window symmetry.
+8. Optionally, use a weighted moving average to smooth the time series (e.g., wind and temperature) and fill the NAN values. A variable-width window is also implemented, which takes into account the dynamic levels of noise and signal.
+It uses a moving average with linear weights between a user-defined central weight (typically the max weight) and a side weight (typically the minimum weight). The width of the window can be adjusted by specifying the number of data points on each side, this parameterization guarantees the window symmetry.
 Constraints can be set to define when the missing information is too large to fill the NAN values (maximum number of missing load values or their cumulative associated weight).
 8. The CLI application saves a new csv file compatible with load_plot.
 
 ## 3 load_plot
-CLI application to plot the load time series saved by dad141_log or load_process.
-The application automatically adjust the datetime format.
-The output format of the figure is svg.
+CLI application to plot the load time series, raw or processed data.
+The application automatically adjusts the datetime format.
+The output format of the figure is an interactive figure that can handle long time series.
 
 Note, throughout the crate, load is used for the load cells data, while weight is used for the moving average.
 
-<p align="center"><img src="irrigation_processed_lpp.png"></p>
+<p align="center"><img src="load_timeseries.png"></p>
 
 Documentation: [rust_crate](https://crates.io/crates/load_lpp)
 
 The CLI applications are written in the [Rust](https://www.rust-lang.org) programming language.
 
-# Addition Notes
-
-## DAD141.1
+## Example: setup with the DAD141.1 analog-to-digital converter
 
 ###  General
 * Remove the seal switch jumper to enable all the commands, that is just for legal applications.
@@ -91,14 +89,14 @@ Possible whitespace-property characters (Unicode standard) will be correctly tri
 
 ### Mounting modules
 Three types of mounting modules are used to obtain the correct degrees of freedom, matching the deformation of the system.
-1. Fixed: No mobility, the modules fixes the system point in that position (0D freedom).
+1. Fixed: No mobility, the module fixes the system point in that position (0D freedom).
 2. Bumper: Constrains the movement in one direction (1D freedom).
 3. Free: It allows the movement in all the directions, within the load cell plane (2D freedom).
 
 ### Alignment
 Align the load cells considering the degrees of freedom of the mechanical deformation.
 In particular, pay attention to the fixed and bumper load cell, and their alignment with respect to the main deformation at the bumper.
-See figures are in the manuals.
+See figures in the manuals.
 
 ### Lubricant/Grease
 It is used to protect the mobile parts of the mounting module during their movement (rocker pin and matching top surface).

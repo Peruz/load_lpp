@@ -3,13 +3,12 @@
 extern crate test;
 pub use crate::utils::*;
 use chrono::prelude::*;
-// use plotters::prelude::*;
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
 use plotly::{Plot, Scatter};
-use plotly::layout::{Axis, Layout};
-use plotly::common::{Title, Font };
+use plotly::layout::{Axis, Layout, Margin};
+use plotly::common::{Font};
 use plotly::color::Rgba;
 
 pub mod load_log_dad141;
@@ -218,7 +217,7 @@ impl TimeLoad {
                     },
                 }
             });
-        
+
         // finish by pushing the last hourly time and mean load
         let hourly_mean_load = mean_or_nan(&hourly_loads);
         hourly_timeload.time.push(hourly_time.unwrap());
@@ -284,68 +283,24 @@ impl TimeLoad {
         }
     }
 
-    /// Plot the load time series to svg.
-    // pub fn plot_datetime<P>(&self, fout: P) -> Result<(), Box<dyn std::error::Error>>
-    // where
-    //     P: AsRef<Path>,
-    // {
-    //     let (xmin, xmax) = min_and_max(self.time.iter());
-    //     let xspan: chrono::Duration = xmax - xmin;
-    //     let xfmt = suitable_xfmt(xspan);
-    //     let (ymin, ymax) = min_and_max(self.load.iter().filter(|x| !x.is_nan()));
-    //     let yspan = (ymax - ymin) / 10f64;
-    //     let ymin = ymin - yspan;
-    //     let ymax = ymax + yspan;
-    //     let root = SVGBackend::new(&fout, (1600, 800)).into_drawing_area();
-    //     root.fill(&WHITE)?;
-    //     let mut chart = ChartBuilder::on(&root)
-    //         .margin(50)
-    //         .x_label_area_size(40)
-    //         .y_label_area_size(100)
-    //         .build_cartesian_2d(xmin.clone()..xmax.clone(), ymin..ymax)?;
-    //     chart
-    //         .configure_mesh()
-    //         .light_line_style(&TRANSPARENT)
-    //         .bold_line_style(RGBColor(100, 100, 100).mix(0.5).stroke_width(2))
-    //         .set_all_tick_mark_size(2)
-    //         .label_style(("sans-serif", 20))
-    //         .y_desc("load [kg]")
-    //         .x_labels(16)
-    //         .y_labels(25)
-    //         .x_label_formatter(&|x| x.format(xfmt).to_string())
-    //         .y_label_formatter(&|x: &f64| format!("{:5}", x))
-    //         .x_desc(format!("datetime [{}]", xfmt.replace("%", "")))
-    //         .draw()?;
-    //     let witer = &mut self.load[..].split(|x| x.is_nan());
-    //     let titer = &mut self.time[..].into_iter();
-    //     for wchunk in witer.into_iter() {
-    //         if wchunk.len() == 0 {
-    //             titer.next();
-    //             continue;
-    //         } else {
-    //             let area =
-    //                 AreaSeries::new(titer.zip(wchunk).map(|(x, y)| (*x, *y)), 0.0, &RED.mix(0.2))
-    //                     .border_style(BLACK.stroke_width(1));
-    //             chart.draw_series(area)?;
-    //         }
-    //     }
-    //     Ok(())
-    // }
-
-    pub fn plotly_plot_datetime<P>(&self, _fout: P) -> Result<(), Box<dyn std::error::Error>>
+    pub fn plotly_plot_datetime<P>(&self, fout: P) -> Result<(), Box<dyn std::error::Error>>
     where
         P: AsRef<Path>,
     {
-        let mut plot = Plot::new(); 
+        let margin = Margin::new().left(100).pad(20);
+        let mut plot = Plot::new();
         let trace = Scatter::new(self.time.iter().map(|t| t.to_rfc3339()).collect(), self.load.clone());
         plot.add_trace(trace);
         let background_color: Rgba = Rgba::new(200, 200, 200, 0.5);
         let layout = Layout::new()
-        .x_axis(Axis::new().title(Title::new("Time")).zero_line(false).line_width(2).n_ticks(12))
-        .y_axis(Axis::new().title(Title::new("Load kg")).zero_line(false).tick_format("d").line_width(2))
+        .x_axis(Axis::new().title("Time").zero_line(false).line_width(2).n_ticks(12))
+        .y_axis(Axis::new().title("Load kg").zero_line(false).tick_format("d").line_width(2))
         .font(Font::new().size(16))
-        .plot_background_color(background_color);
+        .plot_background_color(background_color)
+        .margin(margin)
+        .height(720).width(1280);  // also for smaller monitors in the field
         plot.set_layout(layout);
+        plot.write_html(fout);
         plot.show();
         Ok(())
     }
@@ -681,6 +636,51 @@ mod tests {
 
         // save the filtered and smooth load series
         ctl.to_csv("./test/parallel_timeload_processed.csv");
+    }
+
+    #[test]
+    fn test_awat() {
+        let min_w: u8 = 5;
+        let max_w: u8 = 21;
+
+        // this is simulates a low-noise dataset
+        // and should use a small window
+        let mut v: [f64; 30] = core::array::from_fn(|i| i as f64);
+        for i in 0..30 {
+            v[i] = 1.
+        }
+        let (k, b) = awat_regression(&v, 21usize);
+        println!{"selected polynomial order is {}, with associated b of {}", k, b};
+        let mut calc_w = (b * max_w as f64).round() as u8;
+        if calc_w % 2 == 0 {
+            calc_w += 1
+        }
+        println!{"calc window width: {}", calc_w};
+        let w = std::cmp::max(min_w , calc_w);
+        println!{"selected window width: {}", w};
+        assert! { w == min_w}
+
+        // this is simulates a noisy dataset
+        // and should use a larger window
+        let mut v: [f64; 30] = core::array::from_fn(|i| i as f64);
+        for i in 0..30 {
+            if i % 2 == 0 {
+                v[i] = 1.
+            } else {
+                v[i] = 10.
+            }
+        }
+        let (k, b) = awat_regression(&v, 21usize);
+        println!{"selected polynomial order is {}, with associated b of {}", k, b};
+        let mut calc_w = (b * max_w as f64).round() as u8;
+        if calc_w % 2 == 0 {
+            calc_w += 1
+        }
+        println!{"calc window width: {}", calc_w};
+        let w = std::cmp::max(min_w , calc_w);
+        println!{"selected window width: {}", w};
+        assert! { w == calc_w}
+
     }
 }
 
