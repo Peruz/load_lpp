@@ -55,7 +55,7 @@ In this sense, Load\_LPP could also serve as a reference for other software focu
 Weighing systems of load cells have been relevant in many fields, often serving as critical and safety components.
 For example, weighing systems have been used to track precise dosages in pharmaceutical manufacturing, feed storage and mixing in agriculture and farming, and larger systems are often used in construction and mining.
 Recent use of weighing systems has been linked to the diffusion of smart technologies, for example in smart cities, healthcare, transportation and logistics.
-While the variety of applications results in diverse technical challenges, these are typically associated with uneven load distributions, mechanical stresses, temperature effects, and vibrations [@peter2016; @tiboni2020].
+While the variety of applications results in diverse technical challenges, these are typically associated with uneven load distributions, mechanical stresses, temperature effects, and vibrations [@peters2016; @tiboni2020].
 In addition, the temporal dynamics of such predisposing factors result in variable levels of both signal (i.e., load changes) and noise (e.g., vibrations), which further complicates the design of optimal weighing systems and processing procedures.
 Both temporal resolution and measurement time can vary significantly, with applications that often require the system to reliably function over relatively long periods, from quick weigh-in-motion measurements [@jacob2010; @lin2022] to monitoring of years .
 Such issues have been addressed with a combination of mechanical and processing - filtering solutions, the later often being preferred because of cost limitations.
@@ -100,7 +100,7 @@ A maximum missing weight is also defined so that when too many measurements are 
 This would warn the user about large data gaps, which are not addressed by simple gap-filling.
 Because of the expected long time series and possibly large windows (containing many data), these operations are parallelized, using both multi-threading and single-instruction multiple-data optimizations.
 Finally, an adaptive-window solution is also implemented to address the temporal variability of noise and load dynamics (`AWAT`).
-This calculates the relative level of signal and noise based on a polynomial regression of the windowed data [@hannes2015; @peter2014].
+This calculates the relative level of signal and noise based on a polynomial regression of the windowed data [@hannes2015; @peters2014].
 The optimal window width is then calculated based on the Akaike's information criterion [@akaike1974]:
 strong signal (i.e., significant and fast load changes) favors shorter windows to avoid excessive smoothing; however, this is balanced by the relative relevance of the noise, which favors longer windows.
 
