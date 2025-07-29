@@ -16,19 +16,19 @@ authors:
   - name:  Chunwei Chou
     orcid: 0000-0002-9600-4270
     affiliation: "2"
+  - name: Tonelato Irene
+    affiliation: "3"
   - name:  Yuxin Wu
     orcid: 0000-0002-6953-0179
     affiliation: "2"
-  - name: Tonelato Irene
-    affiliation: "3"
 affiliations:
  - name: University of Padova, Department of Geosciences, Italy.
    index: 1
  - name: Environmental and Earth Sciences Area, Lawrence Berkeley National Laboratory, California, USA.
    index: 2
- - name: Independent contributor
+ - name: Individual contributor
    index: 3
-date: 24 July 2025
+date: 29 July 2025
 bibliography: paper.bib
 ---
 
@@ -57,8 +57,8 @@ For example, weighing systems have been used to track precise dosages in pharmac
 Recent use of weighing systems has been linked to the diffusion of smart technologies, for example in smart cities, healthcare, transportation and logistics.
 While the variety of applications results in diverse technical challenges, these are typically associated with uneven load distributions, mechanical stresses, temperature effects, and vibrations [@peters2016; @tiboni2020].
 In addition, the temporal dynamics of such predisposing factors result in variable levels of both signal (i.e., load changes) and noise (e.g., vibrations), which further complicates the design of optimal weighing systems and processing procedures.
-Both temporal resolution and measurement time can vary significantly, with applications that often require the system to reliably function over relatively long periods, from quick weigh-in-motion measurements [@jacob2010; @lin2022] to monitoring of years .
-Such issues have been addressed with a combination of mechanical and processing - filtering solutions, the later often being preferred because of cost limitations.
+Both temporal resolution and measurement time can vary significantly, with applications that often require the system to reliably function over relatively long periods, from quick weigh-in-motion measurements [@jacob2010; @lin2022] to monitoring of years.
+Such issues have been addressed with a combination of mechanical and processing - filtering solutions, the latter often being preferred because of cost limitations.
 
 In this sense, commercial systems have some possible limitations:
 
@@ -68,16 +68,16 @@ In this sense, commercial systems have some possible limitations:
 4. Can have significant overhead processing steps because of device- or manufacturer-specific formats and functionalities, particularly when multiple systems are used across different projects.
 5. Are not, or hardly, extendable.
 6. Are not suited for large data sets, from the simple handling and visualization of large files to the numerical optimization.
-7. From a general perspective, the are not open source and thus can conflict with some scientific best practices, depending on their complexity level (e.g., point 3).
+7. From a general perspective, they are not open source and thus can conflict with some scientific best practices, depending on their complexity level (e.g., point 3).
 
 # Implementation
 Load\_LPP logging functionality, combined with the rich and optimized processing tools, aims to address the above limitations and introduced challenges.
 The logging functionality (`load_log`) manages a TCP (Transmission Control Protocol) stream between the logging device and the digital amplifier of the weighing system.
-This connection is used to received the data and control the logging settings.
+This connection is used to receive the data and control the logging settings.
 The logging functionality only depends on the network primitives provided by the Rust standard library [std::net](https://doc.rust-lang.org/std/net/index.html) and the [Chrono](https://crates.io/crates/chrono) library.
 Among the implemented functionalities, Load\_LPP automatically recovers the connection after possible timeouts and other issues that are not covered by the primitives, and yet frequent in actual applications.
 This is in-line with more autonomous and remote scientific setups, often also running on limited power supplies.
-The Chrono library to manage the time aspects of the connection and logging schedule.
+The Chrono library is used to manage the time aspects of the connection and logging schedule.
 Note that data are stored and processed with timezone-aware datetime, which also correctly handles clock variations over the year (standard format RFC 3339 - ISO 8601).
 The executable offers several configurations, including connection parameters to adapt to different weighing systems and logging parameters, such as measurement frequency and delays.
 The configurations are accessible and documented within the command-line help functionality, which also provides convenient default values.
@@ -92,10 +92,10 @@ The continuity is automatically checked and, if needed, corrected relative to th
 The missing values are filled with NaN.
 The second processing step is the removal of periods specified by the user (maintenance, etc.), these are conveniently stored and read from a plain text file.
 In addition, the filtering phase also provides an automatic detection of anomalous periods, which can be saved into a file for successive user verification merging the two files.
-The straight-forward range-based filter is also implemented, which checks whether the individual values are within an accepted range.
+The straightforward range-based filter is also implemented, which checks whether theindividual values are within an accepted range.
 The discarded values are replaced with NaN.
 At this point, flexible smoothing solutions are available to smooth the data and replace the NaN values by interpolation (gap filling), when suitable.
-A weighted mowing average is defined with user-defined width and weight distribution (linear distribution between a central-maximum value and side-minimum weights).
+A weighted moving average is defined with user-defined width and weight distribution (linear distribution between a central-maximum value and side-minimum weights).
 A maximum missing weight is also defined so that when too many measurements are missing within the window - accounting by their relative weight - the central value being interpolated is left to NaN.
 This would warn the user about large data gaps, which are not addressed by simple gap-filling.
 Because of the expected long time series and possibly large windows (containing many data), these operations are parallelized, using both multi-threading and single-instruction multiple-data optimizations.
@@ -105,7 +105,7 @@ The optimal window width is then calculated based on the Akaike's information cr
 strong signal (i.e., significant and fast load changes) favors shorter windows to avoid excessive smoothing; however, this is balanced by the relative relevance of the noise, which favors longer windows.
 
 A third and last executable is the plotting part, which allows a quick visualization of the processed data, reading either the raw or processed data.
-The Rust `plotly` bindings are used to handle the smooth and interactive visualization of the expected large time series, up to some million of measurements.
+The Rust `plotly` bindings are used to handle the smooth and interactive visualization of the expected large time series, up to some millions of measurements.
 
 Several tests are including in the library to verify the correctness of the functionalities.
 The testing part uses the `cargo test` default command.
