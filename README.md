@@ -35,7 +35,7 @@ The standard format RFC 3339 - ISO 8601 is used for the datetime to be more gene
 
 See help with 'load_log -h':
 
-'''
+```
 Usage: load_log [OPTIONS]
 
 Options:
@@ -49,9 +49,9 @@ Options:
   -p, --port <port>             port for the telnet connection [default: 23]
   -h, --help                    Print help (see more with '--help')
   -V, --version                 Print version
-'''
+```
 
-For example, the command 'load_log -m 1 -d 1' would set a minute of delay and then record every minute, saving the data in 'loadcells.csv'. 
+For example, the command `load_log -m 1 -d 1` would set a minute of delay and then record every minute, saving the data in `loadcells.csv`. 
 
 ## 2 load_process
 This CLI application processes the load time series with the following steps:
@@ -69,9 +69,9 @@ Constraints can be set to define when the missing information is too large to fi
 
 Note, throughout the software, load is used for the load cells data, while weight is used for the moving average.
 
-See help with 'load_process -h':
+See help with `load_process -h`:
 
-'''
+```
 Usage: load_process [OPTIONS] --inrawdata <in_raw_data>
 
 Options:
@@ -105,22 +105,21 @@ Options:
           daily time interval to be removed
       --timezone <timezone>
           timezone standard time relative to UTC [default: -8]
-'''
+```
 
 ## 3 load_plot
 CLI application to plot the load time series, raw or processed data.
 The application automatically adjusts the datetime format.
 The output format of the figure is an interactive figure that can handle long time series.
+See the help with `load_plot: -h`:
 
-See the help with 'load_plot: -h':
-
-'''
+```
 Options:
   -f, --csvfile <input_csvfile>   name for the csv file [default: loadcells.csv]
   -o, --svgfile <output_svgfile>  name of the output svg file
   -h, --help                      Print help
   -V, --version                   Print version
-'''
+```
 
 
 <p align="center"><img src="load_timeseries.png"></p>
