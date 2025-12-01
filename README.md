@@ -1,6 +1,6 @@
 # load_lpp (log - process - plot) 🦀
-This crate compiles the following three binaries for logging, preprocessing, and plotting load time series from weighing systems.
-
+This crate provides the following three applications for logging, preprocessing, and plotting load time series from weighing systems.
+The three applications work in sequence to form a feature-complete pipe-line, but may also be used independently. 
 
 ## Installation
 
@@ -9,7 +9,7 @@ Recommended, platform-agnostic automatic installation:
 1. Download the package manager from `https://rust-lang.org/learn/get-started/`
 2. Run `cargo install load_lpp`
 
-This would install the three binaries.
+This installs the three applications.
 Alternatively, also platform-agnostic but with local compilation of the binaries:
 
 1. Clone or download the Git repository. For example, `git clone https://github.com/Peruz/load_lpp/tree/master`
@@ -17,13 +17,11 @@ Alternatively, also platform-agnostic but with local compilation of the binaries
 
 ## Documentation 
 
-The step-by-step description to the three binaries is given below.
+The step-by-step description to the three applications is given below.
 This should be sufficient for using the software.
-
 Further documentation and details on the library codes can be found here.
 [rust_crate](https://crates.io/crates/load_lpp).
 See in particular the 'Documentation' or 'Repository' links.
-
 
 ## 1 load_log_dad141
 CLI application to log load cells via the common TCP-UTF8 protocol.
@@ -105,6 +103,8 @@ Options:
       --timezone <timezone>
           timezone standard time relative to UTC [default: -8]
 ```
+
+For example, `load_process -f loadcells.csv -o processed.csv -s 10 -mavg_max_missing_values 4 -min_load 3`.
 
 ## 3 load_plot
 CLI application to plot the load time series, raw or processed data.
