@@ -5,26 +5,26 @@ This crate compiles the following three binaries for logging, preprocessing, and
 
 ### Installation
 
-Platform-agnostic automatic installation:
+Recommended, platform-agnostic automatic installation:
 
 1. Download the package manager https://rust-lang.org/learn/get-started/
 2. Run 'cargo install load_lpp'
 
 This would install the three binaries.
-Alternatively, also platform-agnostic but with manual compilation of the binaries:
+Alternatively, also platform-agnostic but with local compilation of the binaries:
 
 1. Clone or download the Git repository. For example, 'git clone https://github.com/Peruz/load_lpp/tree/master'
 2. Compile the three binaries running the command 'cargo install --path .' in the project directory.
 
 ### Documentation 
 
-The application is written in Rust and targets low-level optimization and long-term stability.
+The step-by-step description to the three binaries is given below.
+This should be sufficient for using the software.
 
-Documentation: [rust_crate](https://crates.io/crates/load_lpp)
+Further documentation and details on the library codes can be found here.
+[rust_crate](https://crates.io/crates/load_lpp)
+See in particular the 'Documentation' or 'Repository' links.
 
-The CLI applications are written in the [Rust](https://www.rust-lang.org) programming language.
-
-Below, the step-by-step description to the three binaries.
 
 ## 1 load_log_dad141
 CLI application to log load cells via the common TCP-UTF8 protocol.
