@@ -1,6 +1,30 @@
 # load_lpp (log - process - plot) 🦀
-This crate compiles the following three binaries for logging, preprocessing, and plotting load time series.
+This crate compiles the following three binaries for logging, preprocessing, and plotting load time series from weighing systems.
+
+## Getting started
+
+### Installation
+
+Platform-agnostic automatic installation:
+
+1. Download the package manager https://rust-lang.org/learn/get-started/
+2. Run 'cargo install load_lpp'
+
+This would install the three binaries.
+Alternatively, also platform-agnostic but with manual compilation of the binaries:
+
+1. Clone or download the Git repository. For example, 'git clone https://github.com/Peruz/load_lpp/tree/master'
+2. Compile the three binaries running the command 'cargo install --path .' in the project directory.
+
+### Documentation 
+
 The application is written in Rust and targets low-level optimization and long-term stability.
+
+Documentation: [rust_crate](https://crates.io/crates/load_lpp)
+
+The CLI applications are written in the [Rust](https://www.rust-lang.org) programming language.
+
+Below, the step-by-step description to the three binaries.
 
 ## 1 load_log_dad141
 CLI application to log load cells via the common TCP-UTF8 protocol.
@@ -8,6 +32,26 @@ The application allows automatic logging at rounded intervals of minutes or hour
 Valid minutes intervals are 1, 2, 3, 5, 10, 15, 20, 30, and 60 minute(s).
 Valid hours intervals are 1, 2, 3, 6, 12, and 24 hour(s).
 The standard format RFC 3339 - ISO 8601 is used for the datetime to be more general and robust to time zones and daylight saving.
+
+See help with 'load_log -h':
+
+'''
+Usage: load_log [OPTIONS]
+
+Options:
+  -o, --csvfile <csvfile>       name for the csv file [default: loadcells.csv]
+  -m, --minutes <minutes>       interlude and rounding for the reading times, in minutes [default: 2] [possible values: 1, 2, 3, 5, 10, 15, 20, 30, 60]
+      --hours <hours>           interlude and rounding for the reading times, in hours [possible values: 1, 2, 3, 6, 12, 24]
+  -c, --tcmd <tcmd>             telnet command [default: gn] [possible values: gn, ga, GN, GA]
+  -d, --delay <delay>           delay connection and logging, in minutes [default: 0]
+  -v, --verbose [<verbose>...]  print verbose information
+  -t, --ip <ip_address>         ip address for the telnet connection [default: 192.168.0.100]
+  -p, --port <port>             port for the telnet connection [default: 23]
+  -h, --help                    Print help (see more with '--help')
+  -V, --version                 Print version
+'''
+
+For example, the command 'load_log -m 1 -d 1' would set a minute of delay and then record every minute, saving the data in 'loadcells.csv'. 
 
 ## 2 load_process
 This CLI application processes the load time series with the following steps:
@@ -23,20 +67,66 @@ It uses a moving average with linear weights between a user-defined central weig
 Constraints can be set to define when the missing information is too large to fill the NAN values (maximum number of missing load values or their cumulative associated weight).
 8. The CLI application saves a new csv file compatible with load_plot.
 
+Note, throughout the software, load is used for the load cells data, while weight is used for the moving average.
+
+See help with 'load_process -h':
+
+'''
+Usage: load_process [OPTIONS] --inrawdata <in_raw_data>
+
+Options:
+  -f, --inrawdata <in_raw_data>
+          name for the input csv file with the data to process
+  -o, --outprocdata <out_proc_data>
+          name for the output csv file with processed data
+  -s, --mavg_side <mavg_side>
+          number of data points on each side for the moving average window [default: 2]
+      --mavg_max_missing_values <mavg_max_missing_values>
+          maximum missing number of values for the moving average [default: 3]
+      --mavg_max_missing_weight <mavg_max_missing_weight>
+          maximum percentage of missing weight for the moving average [default: 80]
+      --mavg_central_weight <mavg_central_weight>
+          weight of the mavg central value [default: 3]
+      --mavg_side_weight <mavg_side_weight>
+          weight of the mavg ends [default: 1]
+      --anomaly_detect
+          find and remove anomalous periods
+      --anomaly_width <anomaly_width>
+          width of the anomaly detection window [default: 16]
+      --anomaly_iqr <anomaly_iqr>
+          threshold for the anomaly detection as interquartile range [default: 40]
+      --max_load <max_load>
+          maximum accepted load value [default: 17000]
+      --min_load <min_load>
+          minimum accepted load value [default: 13000]
+      --bad_datetimes [<bad_datetimes>]
+          name of the file with bad datetimes to be removed
+      --bad_time_interval <bad_time_interval> <bad_time_interval>
+          daily time interval to be removed
+      --timezone <timezone>
+          timezone standard time relative to UTC [default: -8]
+'''
+
 ## 3 load_plot
 CLI application to plot the load time series, raw or processed data.
 The application automatically adjusts the datetime format.
 The output format of the figure is an interactive figure that can handle long time series.
 
-Note, throughout the crate, load is used for the load cells data, while weight is used for the moving average.
+See the help with 'load_plot: -h':
+
+'''
+Options:
+  -f, --csvfile <input_csvfile>   name for the csv file [default: loadcells.csv]
+  -o, --svgfile <output_svgfile>  name of the output svg file
+  -h, --help                      Print help
+  -V, --version                   Print version
+'''
+
 
 <p align="center"><img src="load_timeseries.png"></p>
 
-Documentation: [rust_crate](https://crates.io/crates/load_lpp)
 
-The CLI applications are written in the [Rust](https://www.rust-lang.org) programming language.
-
-## Example: setup with the DAD141.1 analog-to-digital converter
+## Extra, practical setup with the DAD141.1 analog-to-digital converter
 
 ###  General
 * Remove the seal switch jumper to enable all the commands, that is just for legal applications.
