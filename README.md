@@ -1,29 +1,28 @@
 # load_lpp (log - process - plot) 🦀
 This crate compiles the following three binaries for logging, preprocessing, and plotting load time series from weighing systems.
 
-## Getting started
 
-### Installation
+## Installation
 
 Recommended, platform-agnostic automatic installation:
 
-1. Download the package manager https://rust-lang.org/learn/get-started/
-2. Run 'cargo install load_lpp'
+1. Download the package manager from `https://rust-lang.org/learn/get-started/`
+2. Run `cargo install load_lpp`
 
 This would install the three binaries.
 Alternatively, also platform-agnostic but with local compilation of the binaries:
 
-1. Clone or download the Git repository. For example, 'git clone https://github.com/Peruz/load_lpp/tree/master'
-2. Compile the three binaries running the command 'cargo install --path .' in the project directory.
+1. Clone or download the Git repository. For example, `git clone https://github.com/Peruz/load_lpp/tree/master`
+2. Compile the three binaries running the command `cargo install --path .` in the project directory.
 
-### Documentation 
+## Documentation 
 
 The step-by-step description to the three binaries is given below.
 This should be sufficient for using the software.
 
 Further documentation and details on the library codes can be found here.
 [rust_crate](https://crates.io/crates/load_lpp)
-See in particular the 'Documentation' or 'Repository' links.
+See in particular the `Documentation` or `Repository` links.
 
 
 ## 1 load_log_dad141
@@ -33,7 +32,7 @@ Valid minutes intervals are 1, 2, 3, 5, 10, 15, 20, 30, and 60 minute(s).
 Valid hours intervals are 1, 2, 3, 6, 12, and 24 hour(s).
 The standard format RFC 3339 - ISO 8601 is used for the datetime to be more general and robust to time zones and daylight saving.
 
-See help with 'load_log -h':
+See help with `load_log -h`:
 
 ```
 Usage: load_log [OPTIONS]
