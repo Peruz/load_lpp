@@ -21,8 +21,8 @@ The step-by-step description to the three binaries is given below.
 This should be sufficient for using the software.
 
 Further documentation and details on the library codes can be found here.
-[rust_crate](https://crates.io/crates/load_lpp)
-See in particular the `Documentation` or `Repository` links.
+[rust_crate](https://crates.io/crates/load_lpp).
+See in particular the 'Documentation' or 'Repository' links.
 
 
 ## 1 load_log_dad141
