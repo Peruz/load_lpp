@@ -42,12 +42,6 @@ Load\_LPP addresses the lack of similar libraries and software in hydrological s
 Such applications face several challenges because of their outdoor location, challenging maintenance (remote and underground installation), load resolution requirements, and high temporal variability of both signal (rain and ET) and noise (wind, temperature, etc.).
 Beyond hydrology, the above challenges are common in several other fields and industry.
 
-# Mention
-The library was used by @peruzzo2024 and @mary2023 (Figure 1).
-A third related work is in preparation.
-Considering the number of similar hydrological studies, the software publication could lead to its adoption from other research groups.
-More in general, the number of Rust libraries has been increasing, also supported by public policies [@matsakis2014; @perkel2020; @schueller2022].
-Load\_LPP could serve as a reference because the language ecosystem for data management is relatively young and there are not many feature-complete data pipelines.
 
 ![Example of usage in edge devices [@peruzzo2024]. \label{fig1}](figure.png)
 
@@ -69,7 +63,7 @@ Herein, commercial systems have common limitations:
 6. Are not suited for large data sets, from the processing and visualization of large files, to numerical optimization.
 7. They are not open source and may conflict with scientific best practices, depending on their complexity level (e.g., point 3).
 
-# Implementation
+# Software design
 Load\_LPP aims to address the above limitations and challenges.
 The logging functionality (`load_log`) manages a TCP stream of data and settings between a general logging device and a digital amplifier.
 Load\_LPP automatically recovers the connection in case of timeouts, power loss, or TCP errors.
@@ -79,18 +73,18 @@ Load\_LPP uses timezone-aware datetime and also handles clock variations over th
 The command-line help documents the connection and logging configurations, and provides convenient default values.
 Thanks to the limited dependencies and [Rust](https://rust-lang.org/) low-level management of resources, the compiled executable can run on minimal-edge devices.
 
-The processing functionalities include common processing steps, as well as more advanced and specific time-series operations.
-As for the logging part, the processing functionalities are then organized into an executable (`load_process`).
+The processing functionalities include common processing steps and more specific time-series operations.
+As for the logging part, the processing functionalities are organized into an executable (`load_process`).
 First, it checks the continuity and order of the time series, handling time zones and clock variations.
 The second processing step removes periods specified by the user (maintenance, etc.) and stored in a text file.
 The filtering also automatically detects anomalous periods, which can be added to the previous file.
 Then, a range-based filter checks whether the individual values are within an accepted range.
 Flexible solutions are provided to smooth and gap-fill the data.
-A weighted moving average is implemented with user-defined width and weight distribution (between a central-maximum weight and side-minimum weights).
-A maximum missing weight is also defined so that the central value being interpolated is left to NaN when too many measurements, or associated weight, are missing within the moving window.
+A weighted moving average is implemented with user-defined width and weight distribution.
+A maximum missing weight is defined so that the central value being interpolated is left to NaN when too many measurements, or associated weight, are missing.
 These operations are parallelized using both multi-threading and SIMD because of the expected long time series, high temporal resolution, and large smoothing windows.
 Finally, an adaptive-window solution is implemented to address the temporal variability of noise and load dynamics (`AWAT`).
-This calculates the relative level of signal and noise with a polynomial regression of the windowed data [@hannes2015; @peters2014].
+This calculates the relative levels of signal and noise with a polynomial regression of the windowed data [@hannes2015; @peters2014].
 The optimal window width is calculated based on the Akaike's information criterion [@akaike1974]:
 significant and fast load changes favor shorter windows to avoid excessive smoothing; however, this is balanced by the relative relevance of the noise, which favors longer windows.
 
@@ -98,6 +92,16 @@ The visualization executable provides a convenient and interactive visualization
 The visualization smoothly handles the expected large time series, up to some millions of measurements.
 
 The library includes several tests, run with the Rust standard `cargo test`.
+
+# Research impact statement
+The library was used by @peruzzo2024 and @mary2023 (Figure 1).
+A third related work is in preparation.
+Considering the number of similar hydrological studies, the software publication could lead to its adoption from other research groups.
+More in general, the number of Rust libraries has been increasing, also supported by public policies [@matsakis2014; @perkel2020; @schueller2022].
+Load\_LPP could serve as a reference because the language ecosystem for data management is relatively young and there are not many feature-complete data pipelines.
+
+# AI usage disclosure
+No generative AI tools were used in the development of this software, the writing of this manuscript, or the preparation of supporting materials.
 
 # Acknowledgements
 We acknowledge the support of the Advanced Research Projects Agency - Energy, Rhizosphere Observations Optimizing Terrestrial Sequestration.
