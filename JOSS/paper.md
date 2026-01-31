@@ -1,7 +1,7 @@
 ---
 title: 'Load_LPP: a Rust pipeline to Log, Process, and Plot load time series'
 tags:
-  - Weighing system
+  - Weighing
   - Load cell
   - Data logger
   - Time series
@@ -46,9 +46,9 @@ Beyond hydrology, the above challenges are common in several other fields and in
 # Statement of need
 Weighing systems are critical components in many fields, from drug dosing to large systems in farming, construction, mining, and smart technologies.
 The variety of applications results in diverse technical challenges: uneven load distributions, mechanical stresses, temperature effects, and vibrations [@peters2016; @tiboni2020].
-The temporal dynamics of such issues give variable levels of signal (load changes) and noise.
-In addition, both temporal resolution and measurement time can vary significantly, e.g., long monitoring measuring fast load changes [@jacob2010; @lin2022].
-Such challenges have been addressed with a combination of mechanical and processing solutions, the latter often being preferred because of cost limitations.
+The temporal dynamics of such issues give variable levels of signal and noise.
+In addition, both temporal resolution and measurement time vary significantly, e.g., long monitoring measuring fast load changes [@jacob2010; @lin2022].
+Such challenges have been addressed with mechanical and processing solutions, the latter being preferred because of cost limitations.
 
 # State of the field
 The field of weighing systems is dominated by commercial solutions, which have common limitations for research applications:
@@ -61,7 +61,7 @@ The field of weighing systems is dominated by commercial solutions, which have c
 6. Are not suited for large data sets, from the processing and visualization of large files, to numerical optimization.
 7. They are not open source and may conflict with scientific best practices, depending on their complexity level (e.g., point 3).
 
-Research contributions focus on the scientific and theoretical aspects of the weighing designs, often including some scientific aspects for publication.
+Research contributions focus on the scientific and theoretical aspects of the weighing designs, often prioritizing scientific aspects for publication.
 As such, they do not focus and provide the underlying software solutions.
 Other studies focus on the processing theoretical aspects, but rarely provide the actual codes.
 To the best of our knowledge, there is no equivalent data pipeline integrating relevant processing functionalities in a system-agnostic solution.
@@ -71,21 +71,21 @@ The logging functionality (`load_log`) manages a TCP stream of data and settings
 Load\_LPP automatically recovers the connection in case of timeouts, power loss, or TCP errors.
 This supports more autonomous and remote scientific setups, often running on limited power supplies.
 Load\_LPP uses timezone-aware datetime and also handles clock variations over the year (RFC 3339 - ISO 8601).
-The command-line help documents the connection and logging configurations, and provides convenient default values.
+The command-line help documents the connection and logging configurations, and provides convenient defaults.
 Thanks to the limited dependencies and [Rust](https://rust-lang.org/) low-level management of resources, the compiled executable can run on minimal-edge devices.
 
-The processing functionalities include common processing steps and more specific time-series operations, organized in `load_process`.
+The processing functionalities include generic and specific time-series operations, organized in `load_process`.
 First, it checks the continuity and order of the time series, handling time zones and clock variations.
-The second processing step removes periods specified by the user (maintenance, etc.) and stored in a text file.
-The filtering also automatically detects anomalous periods, which can be added to the previous file.
-Then, a range-based filter checks whether the individual values are within an accepted range.
+The second processing step removes periods specified by the user (maintenance, etc.) with a text file.
+The filtering also automatically detects and adds anomalous periods to the above file.
+Then, a range-based filter removes possible outliers.
 For smoothing and gap-filling the data, a weighted moving average is implemented with user-defined width and weight distribution.
 A maximum missing weight is defined so that the central value being interpolated is left to NaN when too many measurements, or associated weight, are missing.
-These operations are parallelized using both multi-threading and SIMD because of the expected long time series, high temporal resolution, and large smoothing windows.
-Alternatively, an adaptive-window solution is implemented to address the temporal variability of noise and load dynamics (`AWAT`).
+Alternatively, an adaptive-window solution addresses the temporal variability of noise and load dynamics (`AWAT`).
 This calculates the relative levels of signal and noise with a polynomial regression of the windowed data [@hannes2015; @peters2014].
 The optimal window width is calculated based on the Akaike's information criterion [@akaike1974]:
-significant and fast load changes favor shorter windows to avoid excessive smoothing; however, this is balanced by the relative relevance of the noise, which favors longer windows.
+significant and fast load changes favor shorter windows but this is balanced by the relative relevance of the noise, which favors longer windows.
+All operations are parallelized using multi-threading and SIMD because of the expected long time series, high temporal resolution, and large smoothing windows.
 
 The visualization executable provides a convenient and interactive visualization of the data, reading both raw and processed data.
 The visualization smoothly handles the expected large time series, up to some millions of measurements.
@@ -93,10 +93,10 @@ The visualization smoothly handles the expected large time series, up to some mi
 The library includes several tests, run with the Rust standard `cargo test`.
 
 # Research impact statement
-The library was used by @peruzzo2024 and @mary2023 (Figure 1).
+The library was used by @peruzzo2024 and @mary2023.
 A third related work is in preparation.
 Considering the number of similar hydrological studies, the software publication could lead to its adoption from other research groups.
-More in general, the number of Rust libraries has been increasing, also supported by public policies [@matsakis2014; @perkel2020; @schueller2022].
+More in general, the number of Rust libraries has been increasing, also supported by public policies [@perkel2020; @schueller2022].
 Load\_LPP could serve as a reference because the language ecosystem for data management is relatively young and there are not many feature-complete data pipelines.
 In this regard, the Load\_LPP has more than 500 downloads from its official Rust installation webpage. 
 
@@ -105,4 +105,4 @@ No generative AI tools were used in the development of this software, the writin
 
 # Acknowledgements
 We acknowledge the support of the Advanced Research Projects Agency - Energy, Rhizosphere Observations Optimizing Terrestrial Sequestration.
-We also acknowledge the Watershed Function Scientific Focus Area funded by the U.S. Department of Energy, Office of Biological and Environmental Research, award DE-AC02-05CH11231.
+We also acknowledge the Watershed Function Scientific Focus Area funded by the U.S. DOE, award DE-AC02-05CH11231.
