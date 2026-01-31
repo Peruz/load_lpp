@@ -23,7 +23,7 @@ Further documentation and details on the library codes can be found here.
 [rust_crate](https://crates.io/crates/load_lpp).
 See in particular the 'Documentation' or 'Repository' links.
 
-## 1 load_log_dad141
+## 1 load_log
 CLI application to log load cells via the common TCP-UTF8 protocol.
 The application allows automatic logging at rounded intervals of minutes or hours that are divisors of 1 day.
 Valid minutes intervals are 1, 2, 3, 5, 10, 15, 20, 30, and 60 minute(s).
